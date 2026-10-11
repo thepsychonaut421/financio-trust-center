@@ -95,6 +95,12 @@ class CredentialSetupTests(unittest.TestCase):
             with self.assertRaises(setup.ConfigurationError):
                 setup.read_token(from_env=True)
 
+    def test_unavailable_hidden_prompt_fails_without_reading_echoed_input(self):
+        with patch('sys.stdin.isatty', return_value=True), \
+             patch.object(setup.getpass, 'getpass', side_effect=setup.getpass.GetPassWarning('No hidden terminal')):
+            with self.assertRaises(setup.ConfigurationError):
+                setup.read_token()
+
 
 if __name__ == '__main__':
     unittest.main()

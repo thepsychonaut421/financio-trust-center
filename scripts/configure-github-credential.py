@@ -15,6 +15,7 @@ import sys
 import tempfile
 import urllib.error
 import urllib.request
+import warnings
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REPOSITORY = 'thepsychonaut421/Financio-Flow-ERP'
@@ -42,7 +43,12 @@ def read_token(token_file=None, from_env=False):
         with Path(token_file).open('r', encoding='ascii') as source:
             token = source.read(4097).strip()
     elif sys.stdin.isatty():
-        token = getpass.getpass('Dedicated fine-grained GitHub token (hidden): ').strip()
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', getpass.GetPassWarning)
+            try:
+                token = getpass.getpass('Dedicated fine-grained GitHub token (hidden): ').strip()
+            except getpass.GetPassWarning:
+                raise ConfigurationError('Hidden input is unavailable. Use a protected secret file or dedicated environment binding.') from None
     else:
         token = sys.stdin.read(4097).strip()
     if not re.fullmatch(r'github_pat_[A-Za-z0-9_]{20,4000}', token):
