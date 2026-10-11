@@ -263,6 +263,16 @@ npm test
 Run frontend `npm run typecheck`, build, and `npm run test:changelog-ui` with
 configured public Supabase values and the intended API URL for the build.
 The UI test uses mocked connections and requires no credentials.
+
+The deployment dependency baseline uses patched Next.js 15, Supabase clients,
+Resend, Nodemailer, Express, and CSV parsing versions. Nodemailer uses its bundled
+types. The Next.js dependency overrides select patched PostCSS and Sharp versions
+without changing the application's framework major version; verify these overrides
+with a clean `npm ci` and a production build. Frontend compiler, CSS tooling, and
+type declarations are development dependencies and are installed for the build.
+CI also fails on high or critical production dependency advisories with
+`npm audit --omit=dev --audit-level=high`. Advisory results are a dated dependency
+check, not a claim that the application has no security findings.
 The upstream Next.js build skips typechecking, so CI runs it separately.
 Tests must verify access control, revision conflicts, and
 publish history in addition to ordinary build checks. The Trust Center repository
