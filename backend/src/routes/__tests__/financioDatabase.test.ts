@@ -50,6 +50,7 @@ describe('Fresh dedicated Trust Center database initialization', () => {
     try {
       await nativeSupabaseFixture(database);
       await database.exec(sql);
+      expect((await database.query("SELECT relrowsecurity FROM pg_class WHERE oid = 'storage.buckets'::regclass")).rows[0]).toEqual({ relrowsecurity: true });
       const counts = await database.query('SELECT (SELECT count(*) FROM controls)::int AS controls, (SELECT count(*) FROM certifications)::int AS certifications, (SELECT count(*) FROM security_updates)::int AS updates');
       expect(counts.rows[0]).toEqual({ controls: 0, certifications: 0, updates: 0 });
       expect((await database.query('SELECT auth.uid() AS id')).rows[0]).toEqual({ id: '00000000-0000-0000-0000-000000000001' });
@@ -88,6 +89,29 @@ describe('Fresh dedicated Trust Center database initialization', () => {
       await expect(database.exec(sql)).rejects.toThrow(/Fresh database required/);
       await database.exec('ROLLBACK');
       expect((await database.query('SELECT count(*)::int AS count FROM trust_center_settings')).rows[0]).toEqual({ count: 1 });
+    } finally { await database.close(); }
+  }, 30000);
+
+  it('preserves provider-owned storage RLS without requiring ownership, and fails closed if it is disabled', async () => {
+    const migration = fs.readFileSync(path.join(repository, 'supabase/migrations/032_security_hardening.sql'), 'utf8');
+    const storageRls = migration.slice(migration.indexOf('-- Enable RLS on storage.buckets'), migration.indexOf('CREATE POLICY "Anyone can view buckets"'));
+    const database = new PGlite();
+    try {
+      await nativeSupabaseFixture(database);
+      await database.exec(`
+        CREATE ROLE supabase_storage_admin;
+        CREATE ROLE trust_migration;
+        GRANT USAGE ON SCHEMA storage TO trust_migration;
+        ALTER TABLE storage.buckets ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE storage.buckets OWNER TO supabase_storage_admin;
+        SET ROLE trust_migration;
+      `);
+      await expect(database.exec('ALTER TABLE storage.buckets ENABLE ROW LEVEL SECURITY')).rejects.toMatchObject({ code: '42501' });
+      await database.exec(storageRls);
+      expect((await database.query("SELECT relrowsecurity FROM pg_class WHERE oid = 'storage.buckets'::regclass")).rows[0]).toEqual({ relrowsecurity: true });
+      await database.exec('RESET ROLE; ALTER TABLE storage.buckets DISABLE ROW LEVEL SECURITY; SET ROLE trust_migration');
+      await expect(database.exec(storageRls)).rejects.toMatchObject({ code: '42501' });
+      expect((await database.query("SELECT relrowsecurity FROM pg_class WHERE oid = 'storage.buckets'::regclass")).rows[0]).toEqual({ relrowsecurity: false });
     } finally { await database.close(); }
   }, 30000);
 

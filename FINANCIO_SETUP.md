@@ -156,7 +156,8 @@ become available to it; verify access before pushing the reviewed branch.
 Use a dedicated Proxmox VM named `financio-trust-center`, with its own operator
 account, Docker installation, backups and secret bindings. A starting allocation
 is 2 vCPU, 4GiB RAM and 32GiB storage, adjusted for document volume. Choose an
-available VM ID during provisioning. VM140 (`financio-ci`) remains the CI host.
+available VM ID during provisioning. Keep the existing CI guest separate; verify
+its current VM/container ID in Proxmox rather than relying on an older runbook.
 The selected VM/node/access path must be established before any remote changes;
 this repository does not assert that the VM has been provisioned.
 
@@ -178,6 +179,20 @@ development bootstrap that replaces Supabase auth helper functions, and
 `018_seed_plaid_categories.sql`, which contains unverified sample SOC 2, ISO,
 AWS certification, and other public assertions. Those upstream reference files
 remain preserved in the repository; they are not Financio evidence.
+
+Hosted Supabase owns `storage.buckets` and already enables its row-level security.
+Migration `032` preserves that setting without repeating an owner-only `ALTER`.
+For a local installation with RLS disabled it still enables RLS, and a role that
+cannot enable the required protection causes initialization to roll back.
+
+Use the project's **Database Settings → SSL configuration → Download certificate**
+link to obtain the provider CA and bind its protected local path as
+`PGSSLROOTCERT`. Keep `PGSSLMODE=verify-full`; do not disable certificate or hostname
+verification to work around a connection error. IPv4-only servers can use the
+project's **Connect → Direct → Session pooler** endpoint on port5432, with the
+displayed `postgres.<project-ref>` user. Copy the complete hostname from that
+dialog and keep the password in a protected binding, never in a connection URL
+argument.
 
 For an existing upstream installation, back up first and apply only unapplied
 migrations, including `035`, `036`, and `037`, after reviewing any existing public claims.
