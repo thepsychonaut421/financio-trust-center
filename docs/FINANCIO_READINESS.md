@@ -34,8 +34,14 @@ Before relying on the portal for restricted documents:
 
 1. Confirm public pages and APIs, administrator login, private draft/history
    protection and manual publication at the deployed source revision.
-2. Check Resend delivery and Proton receiving aliases. The completed backend email
-   test does not verify Supabase Auth recovery emails or document-delivery emails.
+2. Check Resend delivery and Proton receiving aliases. Verify Supabase Auth
+   recovery separately from backend document-delivery emails. Configure the
+   native Reset password email link as
+   `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery`.
+   This verifies a single-use recovery token on the server and permits opening
+   the email on another device, without relying on a browser's PKCE verifier.
+   Keep the site URL fixed to the Trust Center HTTPS origin; the callback never
+   follows a user-supplied destination. Do not put recovery links in logs.
 3. Exercise access-request approval, approved-document links and revoked/expired
    links with explicitly approved test recipients and real test documents. Clean
    up the fixtures afterward. Avoid uncontrolled production test messages.

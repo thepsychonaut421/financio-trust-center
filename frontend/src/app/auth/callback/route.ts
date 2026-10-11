@@ -21,7 +21,15 @@ export async function GET(request: NextRequest) {
         response.headers.set('Referrer-Policy', 'no-referrer');
         return response;
       }
-    } catch { /* Invalid/used recovery links must not leave tokens in the URL. */ }
+      // Log only the provider's classification, never the link, tokens or session.
+      const errorCode = result.error?.code;
+      console.warn('Recovery verification failed', {
+        code: errorCode && /^[a-z_]{1,80}$/.test(errorCode) ? errorCode : 'auth_error',
+        status: result.error?.status,
+      });
+    } catch {
+      console.warn('Recovery verification failed', { code: 'session_exchange_failed' });
+    }
   }
   const response = NextResponse.redirect(new URL('/admin/reset-password?error=invalid_link', publicOrigin));
   response.headers.set('Cache-Control', 'no-store');

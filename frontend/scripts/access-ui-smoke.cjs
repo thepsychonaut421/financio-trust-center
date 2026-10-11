@@ -105,9 +105,18 @@ async function access() {
   assert.deepEqual(downloads, ['owned.pdf']); assert.equal(calls.filter(call => call.url.endsWith('/accept-nda')).length, 1);
 }
 async function callback() {
-  let exchanges = 0;
+  let exchanges = 0; let verifications = 0;
   const moduleRequire = name => name === '@/lib/supabase/server'
-    ? { createClient: async () => ({ auth: { exchangeCodeForSession: async code => { assert.equal(code, 'owned-code'); exchanges++; return { data: { session: {} }, error: null }; }, verifyOtp: async () => ({ data: { session: null }, error: new Error('expired') }) } }) }
+    ? { createClient: async () => ({ auth: {
+      exchangeCodeForSession: async code => { assert.equal(code, 'owned-code'); exchanges++; return { data: { session: {} }, error: null }; },
+      verifyOtp: async body => {
+        verifications++;
+        assert.equal(body.type, 'recovery');
+        return body.token_hash === 'owned-recovery-token'
+          ? { data: { session: {} }, error: null }
+          : { data: { session: null }, error: Object.assign(new Error('expired'), { code: 'otp_expired', status: 403 }) };
+      },
+    } }) }
     : name === 'next/server' ? { NextResponse: { redirect: url => ({ url: url.href, headers: new Headers() }) } } : requireFrontend(name);
   const { GET } = load('src/app/auth/callback/route.ts', moduleRequire);
   const invoke = url => GET({ nextUrl: new URL(url), url });
@@ -116,8 +125,17 @@ async function callback() {
   const result = await invoke('https://0.0.0.0:3000/auth/callback?code=owned-code&next=https://untrusted.example');
   assert.equal(exchanges, 1); assert.equal(result.url, 'https://trust.example.test/admin/reset-password');
   assert.equal(result.headers.get('Referrer-Policy'), 'no-referrer');
+  const recovery = await invoke('https://0.0.0.0:3000/auth/callback?token_hash=owned-recovery-token&type=recovery&next=https://untrusted.example');
+  assert.equal(recovery.url, 'https://trust.example.test/admin/reset-password');
+  assert.equal(recovery.headers.get('Cache-Control'), 'no-store');
+  assert.equal(recovery.headers.get('Referrer-Policy'), 'no-referrer');
+  assert.equal(verifications, 1);
+  const wrongType = await invoke('https://trust.example.test/auth/callback?token_hash=owned-recovery-token&type=signup');
+  assert.equal(wrongType.url, 'https://trust.example.test/admin/reset-password?error=invalid_link');
+  assert.equal(verifications, 1);
   const rejected = await invoke('https://trust.example.test/auth/callback?token_hash=old-token&type=recovery');
   assert.equal(rejected.url, 'https://trust.example.test/admin/reset-password?error=invalid_link');
+  assert.equal(rejected.headers.get('Cache-Control'), 'no-store');
   if (previousOrigin === undefined) delete process.env.TRUST_CENTER_PUBLIC_URL;
   else process.env.TRUST_CENTER_PUBLIC_URL = previousOrigin;
 }

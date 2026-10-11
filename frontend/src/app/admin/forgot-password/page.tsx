@@ -18,7 +18,7 @@ export default function ForgotPasswordPage() {
         redirectTo: `${window.location.origin}/auth/callback`,
       });
       if (recoveryError) throw recoveryError;
-      setMessage('If this address has an account, a password recovery email will arrive shortly. Open the link in this browser.');
+      setMessage('If this address has an account, a password recovery email will arrive shortly. Open the link to set a new password.');
     } catch {
       setError('Recovery could not be requested. Please wait before trying again or contact support.');
     } finally { setLoading(false); }
