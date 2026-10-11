@@ -368,8 +368,9 @@ def verify_restore(image):
             security = json.loads(run(psql, input=SECURITY_SQL.encode()))
             if counts != manifest['table_counts'] or security != manifest['security']:
                 raise BackupError('Restored row counts or security policies do not match the backup')
-            # Every document reference must resolve to a backed-up local file.
-            paths = run(psql, input=b'SELECT file_url FROM public.documents;').decode().splitlines()
+            # Active/draft files must restore. Archiving deliberately removes the
+            # bytes while retaining metadata, so archived references may be absent.
+            paths = run(psql, input=b"SELECT file_url FROM public.documents WHERE status <> 'archived';").decode().splitlines()
             for path in paths:
                 parts = PurePosixPath(path).parts
                 if path.startswith('/') or '..' in parts or 'uploads/' + path not in names:

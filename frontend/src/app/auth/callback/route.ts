@@ -3,6 +3,9 @@ import { createClient } from '@/lib/supabase/server';
 
 // Fixed destination: recovery cannot turn this endpoint into an open redirect.
 export async function GET(request: NextRequest) {
+  // Next can reconstruct request.url with the container hostname behind a
+  // reverse proxy. Recovery must return to the configured public application.
+  const publicOrigin = process.env.TRUST_CENTER_PUBLIC_URL || request.nextUrl.origin;
   const code = request.nextUrl.searchParams.get('code');
   const tokenHash = request.nextUrl.searchParams.get('token_hash');
   const type = request.nextUrl.searchParams.get('type');
@@ -13,14 +16,14 @@ export async function GET(request: NextRequest) {
         ? await supabase.auth.exchangeCodeForSession(code)
         : await supabase.auth.verifyOtp({ token_hash: tokenHash!, type: 'recovery' });
       if (!result.error && result.data.session) {
-        const response = NextResponse.redirect(new URL('/admin/reset-password', request.url));
+        const response = NextResponse.redirect(new URL('/admin/reset-password', publicOrigin));
         response.headers.set('Cache-Control', 'no-store');
         response.headers.set('Referrer-Policy', 'no-referrer');
         return response;
       }
     } catch { /* Invalid/used recovery links must not leave tokens in the URL. */ }
   }
-  const response = NextResponse.redirect(new URL('/admin/reset-password?error=invalid_link', request.url));
+  const response = NextResponse.redirect(new URL('/admin/reset-password?error=invalid_link', publicOrigin));
   response.headers.set('Cache-Control', 'no-store');
   response.headers.set('Referrer-Policy', 'no-referrer');
   return response;

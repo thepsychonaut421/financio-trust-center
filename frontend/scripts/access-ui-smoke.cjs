@@ -111,10 +111,14 @@ async function callback() {
     : name === 'next/server' ? { NextResponse: { redirect: url => ({ url: url.href, headers: new Headers() }) } } : requireFrontend(name);
   const { GET } = load('src/app/auth/callback/route.ts', moduleRequire);
   const invoke = url => GET({ nextUrl: new URL(url), url });
-  const result = await invoke('https://trust.example.test/auth/callback?code=owned-code&next=https://untrusted.example');
+  const previousOrigin = process.env.TRUST_CENTER_PUBLIC_URL;
+  process.env.TRUST_CENTER_PUBLIC_URL = 'https://trust.example.test';
+  const result = await invoke('https://0.0.0.0:3000/auth/callback?code=owned-code&next=https://untrusted.example');
   assert.equal(exchanges, 1); assert.equal(result.url, 'https://trust.example.test/admin/reset-password');
   assert.equal(result.headers.get('Referrer-Policy'), 'no-referrer');
   const rejected = await invoke('https://trust.example.test/auth/callback?token_hash=old-token&type=recovery');
   assert.equal(rejected.url, 'https://trust.example.test/admin/reset-password?error=invalid_link');
+  if (previousOrigin === undefined) delete process.env.TRUST_CENTER_PUBLIC_URL;
+  else process.env.TRUST_CENTER_PUBLIC_URL = previousOrigin;
 }
 (async () => { await recovery(); await access(); await callback(); await act(async () => root.unmount()); console.log('Recovery, restricted access/NDA, and callback UI checks passed.'); })().catch(error => { console.error(error); process.exitCode = 1; });

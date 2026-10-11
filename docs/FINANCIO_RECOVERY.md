@@ -83,8 +83,8 @@ connection. It rejects links, path traversal, duplicate/unlisted files, oversize
 archives and mismatched hashes. It creates a randomly named, temporary container
 with `--network=none`, Unix sockets only, and tmpfs database storage. It recreates
 non-login roles for the drill, restores ownership/grants, compares all table row
-counts, RLS policies and protected RPC permissions, and checks every document's
-local upload reference. It then removes the container and temporary plaintext.
+counts, RLS policies and protected RPC permissions, and checks every active or draft document's
+local upload reference. Archived metadata may refer to deliberately removed files. It then removes the container and temporary plaintext.
 There is no command in this helper to restore into production.
 
 The drill demonstrates logical database/file recovery. It does **not** provision
