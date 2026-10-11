@@ -100,7 +100,8 @@ Required configuration:
 - `EMAIL_PROVIDER` plus its dedicated provider credential and verified
   `SMTP_FROM`: real delivery must be tested before using restricted document links.
 - `EMAIL_REPLY_TO`: an existing monitored mailbox for replies, currently
-  `catchall@financioflow.com`. The verified Resend sender
+  `security@financioflow.com`. Enable this address in Proton before use.
+  The verified Resend sender
   `security@trust.financioflow.com` does not create a receiving mailbox in Proton.
   This setting applies to backend email; Supabase Auth SMTP is configured separately.
 - `TRUST_CENTER_SOURCE_REPOSITORY`: defaults to
