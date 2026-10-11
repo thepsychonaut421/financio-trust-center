@@ -207,6 +207,16 @@ def create_backup(config_path):
     backup_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     if backup_dir.is_symlink() or backup_dir.stat().st_mode & 0o077:
         raise BackupError('Backup directory must be private (mode 0700)')
+    # The root systemd unit hides operator home directories. Read only this
+    # explicitly trusted checkout; do not depend on a user's global git config.
+    git_env = os.environ.copy()
+    git_env.update(GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_NOSYSTEM='1')
+    source_sha = run(['git', '-c', 'safe.directory=' + str(app), 'rev-parse', 'HEAD'],
+                     env=git_env, cwd=app).decode().strip()
+    if not re.fullmatch(r'[a-f0-9]{40}', source_sha):
+        raise BackupError('Unable to identify the Trust Center source revision')
+    # Check credentials/connectivity before introducing any API maintenance.
+    run(['psql', '-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-c', 'SELECT 1;'], env=env, timeout=30)
     compose = ['docker', 'compose', '--env-file', '.env.financio.local', '-f', 'docker-compose.financio.yml']
     container = run(compose + ['ps', '-q', 'backend'], cwd=app).decode().strip()
     if not container or run(['docker', 'inspect', '-f', '{{.State.Running}}', container]).strip() != b'true':
@@ -225,7 +235,7 @@ def create_backup(config_path):
         snapshot_id = snapshot.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; SELECT pg_export_snapshot();')[0]
         manifest = {'format': 1, 'purpose': 'financio-trust-center', 'created_at': stamp,
                     'project_ref': config['project_ref'], 'schemas': list(SCHEMAS),
-                    'source_sha': run(['git', 'rev-parse', 'HEAD'], cwd=app).decode().strip(),
+                    'source_sha': source_sha,
                     'server_version': snapshot.query('SHOW server_version;')[0],
                     'table_counts': table_counts(snapshot.query(COUNTS_SQL)),
                     'security': json.loads(snapshot.query(SECURITY_SQL)[0]),

@@ -136,6 +136,8 @@ class BackupRecoveryTests(unittest.TestCase):
 
             def operation(args, **kwargs):
                 calls.append(args)
+                if args[0] == 'git':
+                    return b'a' * 40
                 if args[-3:] == ['ps', '-q', 'backend']:
                     return b'task-backend\n'
                 if args[:2] == ['docker', 'inspect']:
@@ -150,6 +152,20 @@ class BackupRecoveryTests(unittest.TestCase):
                     backup.create_backup('unused')
             self.assertTrue(any('up' in args and '--wait' in args for args in calls))
             self.assertEqual(list(Path(root).iterdir()), [])
+
+    def test_failed_metadata_preflight_never_stops_backend(self):
+        with tempfile.TemporaryDirectory() as root:
+            calls = []
+
+            def fail(args, **kwargs):
+                calls.append(args)
+                raise backup.BackupError('metadata unavailable')
+
+            with patch.object(backup, 'read_config', return_value=({'backup_dir': root}, Path(root), {})), \
+                    patch.object(backup, 'run', side_effect=fail):
+                with self.assertRaises(backup.BackupError):
+                    backup.create_backup('unused')
+            self.assertFalse(any('stop' in args or 'up' in args for args in calls))
 
 
 if __name__ == '__main__':
