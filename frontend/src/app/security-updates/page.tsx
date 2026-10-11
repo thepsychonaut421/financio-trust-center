@@ -72,10 +72,14 @@ export default async function SecurityUpdatesPage() {
                     Published: {update.published_at.split('T')[0]}
                   </p>
                 )}
-                <div
-                  className="prose max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600"
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(update.content) }}
-                />
+                {update.content_format === 'plain_text' ? (
+                  <div className="whitespace-pre-wrap break-words text-gray-700">{update.content}</div>
+                ) : (
+                  <div
+                    className="prose max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600"
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(update.content) }}
+                  />
+                )}
               </article>
             ))}
           </div>

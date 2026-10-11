@@ -109,3 +109,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Changelog UI smoke
+        run: npm run test:changelog-ui

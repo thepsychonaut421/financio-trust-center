@@ -114,9 +114,9 @@ export default function HomePageClient({
     securityUpdates,
     controls,
 }: HomePageClientProps) {
-    const getUpdatePreview = (content: unknown) => {
+    const getUpdatePreview = (content: unknown, format?: 'plain_text' | 'html') => {
         if (typeof content !== 'string') return 'No update details provided.';
-        const plain = content.replace(/<[^>]*>/g, '').trim();
+        const plain = (format === 'plain_text' ? content : content.replace(/<[^>]*>/g, '')).trim();
         if (!plain) return 'No update details provided.';
         return `${plain.substring(0, 100)}${plain.length > 100 ? '...' : ''}`;
     };
@@ -139,26 +139,6 @@ export default function HomePageClient({
             icon: (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-            ),
-        },
-        {
-            value: '24/7' as string,
-            label: 'Monitoring',
-            icon: (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-            ),
-        },
-        {
-            value: '99.9' as string,
-            label: 'Uptime',
-            suffix: '%',
-            icon: (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
             ),
         },
@@ -186,15 +166,14 @@ export default function HomePageClient({
                         <div>
                             {/* Live status badge */}
                             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-6">
-                                <span className="w-2 h-2 rounded-full bg-green-400 status-pulse" />
-                                <span className="text-sm font-medium text-green-300">All Systems Operational</span>
+                                <span className="text-sm font-medium text-gray-200">Financio Flow Trust Center</span>
                             </div>
 
                             <h1 className="text-3xl sm:text-4xl lg:text-6xl font-extrabold mb-4 sm:mb-6 leading-tight tracking-tight">
-                                {settings.hero_title || 'Security & Trust'}
+                                {settings.hero_title || 'Financio Flow Trust Center'}
                             </h1>
                             <p className="text-base sm:text-lg lg:text-xl text-gray-300 mb-6 sm:mb-8 leading-relaxed max-w-lg">
-                                {settings.hero_subtitle || 'Learn about our commitment to keeping your data safe and secure'}
+                                {settings.hero_subtitle || 'Published security information and approved updates for Financio Flow.'}
                             </p>
                             <div className="flex flex-wrap gap-4">
                                 <Link
@@ -287,7 +266,7 @@ export default function HomePageClient({
                         <div className="text-center mb-12">
                             <h2 className="text-3xl font-bold text-gray-900 mb-4">Security Resources</h2>
                             <p className="text-gray-500 max-w-2xl mx-auto">
-                                Access our comprehensive library of security and compliance documentation
+                                Browse published security and compliance documents
                             </p>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -415,7 +394,7 @@ export default function HomePageClient({
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-8">
                             <div>
                                 <h2 className="text-2xl font-bold text-gray-900 mb-2">Security Controls</h2>
-                                <p className="text-gray-500">Our comprehensive security framework protects your data at every level</p>
+                                <p className="text-gray-500">Published descriptions of our security controls</p>
                             </div>
                             <Link
                                 href="/controls"
@@ -491,7 +470,7 @@ export default function HomePageClient({
                             <div>
                                 <h2 className="text-2xl font-bold text-gray-900 mb-1">Compliance Journey</h2>
                                 <p className="text-gray-500 text-sm">
-                                    Our certifications are continuously maintained and renewed
+                                    Published certification details and review dates
                                 </p>
                             </div>
                             <Link
@@ -551,7 +530,7 @@ export default function HomePageClient({
                                         {update.title || 'Untitled security update'}
                                     </h3>
                                     <p className="text-gray-500 text-sm line-clamp-2 mb-3">
-                                        {getUpdatePreview(update.content)}
+                                        {getUpdatePreview(update.content, update.content_format)}
                                     </p>
                                     <div className="text-xs text-gray-400 font-medium">
                                         {update.published_at ? update.published_at.split('T')[0] : ''}
@@ -568,7 +547,7 @@ export default function HomePageClient({
                 <div className="container mx-auto px-4 text-center relative z-10">
                     <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold mb-4 tracking-tight">Ready to learn more?</h2>
                     <p className="text-gray-300 mb-8 max-w-2xl mx-auto text-lg leading-relaxed">
-                        Explore our comprehensive security documentation and learn about our commitment to protecting your data.
+                        Read published documents and approved security updates.
                     </p>
                     <div className="flex flex-wrap justify-center gap-4">
                         <Link

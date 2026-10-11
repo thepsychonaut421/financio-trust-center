@@ -13,12 +13,12 @@ const DEFAULT_NAV_ITEMS = [
   { key: 'documents', label: 'Documents', icon: 'document' },
   { key: 'certifications', label: 'Certifications', icon: 'badge' },
   { key: 'security-updates', label: 'Security Updates', icon: 'bell' },
+  { key: 'changelog', label: 'Changelog Review', icon: 'clipboard' },
   { key: 'requests', label: 'Requests', icon: 'clipboard' },
   { key: 'tickets', label: 'Support Tickets', icon: 'chat' },
   { key: 'organizations', label: 'Organizations', icon: 'building' },
   { key: 'users', label: 'Users', icon: 'users' },
   { key: 'activity', label: 'Activity Logs', icon: 'log' },
-  { key: 'integrations', label: 'Integrations', icon: 'plug' },
   { key: 'settings', label: 'Settings', icon: 'cog' },
 ];
 
@@ -224,7 +224,7 @@ export default function SettingsAdminPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Trust Center Settings</h1>
         <p className="text-gray-500 text-sm mt-1">
-          Customize your Trust Center's appearance and branding
+          Customize your Trust Center&apos;s appearance and branding
         </p>
       </div>
 

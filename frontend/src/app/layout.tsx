@@ -11,8 +11,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSettings();
 
   return {
-    title: settings?.company_name || 'Trust Center',
-    description: settings?.hero_subtitle || 'Security and compliance documentation',
+    title: `${settings?.company_name || 'Financio Flow'} Trust Center`,
+    description: settings?.hero_subtitle || 'Security documents and approved updates for Financio Flow.',
     icons: settings?.favicon_url ? {
       icon: settings.favicon_url,
       shortcut: settings.favicon_url,

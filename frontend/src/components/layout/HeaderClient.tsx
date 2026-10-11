@@ -121,11 +121,12 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl, isDem
                 // Search security updates
                 updates.forEach(update => {
                     if (update.title?.toLowerCase().includes(query) || update.content?.toLowerCase().includes(query)) {
+                        const preview = update.content_format === 'plain_text' ? update.content : update.content?.replace(/<[^>]*>/g, '');
                         results.push({
                             id: update.id,
                             type: 'update',
                             title: update.title,
-                            description: update.content?.replace(/<[^>]*>/g, '').substring(0, 100),
+                            description: preview?.substring(0, 100),
                             url: '/security-updates',
                         });
                     }
@@ -218,7 +219,7 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl, isDem
                             {logoUrl ? (
                                 <img
                                     src={logoUrl}
-                                    alt={companyName || 'Trust Center'}
+                                    alt={companyName || 'Financio Flow'}
                                     className="h-8 w-auto object-contain"
                                 />
                             ) : (
@@ -226,7 +227,7 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl, isDem
                                     className="text-lg sm:text-xl font-bold"
                                     style={{ color: primaryColor || '#111827' }}
                                 >
-                                    {companyName || 'Trust Center'}
+                                    {companyName || 'Financio Flow'}
                                 </span>
                             )}
                         </Link>

@@ -1,0 +1,71 @@
+# Standalone deployment template. Do not combine with the upstream dev stack.
+# Provision a dedicated Supabase project and apply migrations before startup.
+name: financio-trust-center
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DEMO_MODE: "false"
+      SUPABASE_URL: ${SUPABASE_URL:?Dedicated Trust Center Supabase URL required}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?Dedicated Trust Center public anon key required}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:?Dedicated Trust Center service key required}
+      FRONTEND_URL: ${TRUST_CENTER_PUBLIC_URL:?Trust Center HTTPS URL required}
+      BACKEND_PUBLIC_URL: ${TRUST_CENTER_PUBLIC_API_URL:?Trust Center public API URL required}
+      UPLOADS_DIR: /app/uploads
+      ALLOW_ADMIN_SIGNUP: "false"
+      ENABLE_TEST_EMAIL: "false"
+      DOCUMENT_UPLOADS_ENABLED: "true"
+      DOCUMENT_UPLOAD_ADMIN_EMAIL_ALLOWLIST: ${DOCUMENT_UPLOAD_ADMIN_EMAIL_ALLOWLIST:-}
+      DOCUMENT_UPLOADS_PER_MINUTE: "20"
+      DOCUMENT_UPLOAD_MAX_MB: "25"
+      TRUST_CENTER_SOURCE_REPOSITORY: ${TRUST_CENTER_SOURCE_REPOSITORY:-thepsychonaut421/Financio-Flow-ERP}
+      TRUST_CENTER_GITHUB_TOKEN: ${TRUST_CENTER_GITHUB_TOKEN:-}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-resend}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:?Verified Trust Center sender required}
+    ports:
+      - "127.0.0.1:${TRUST_CENTER_API_PORT:-4101}:4000"
+    volumes:
+      - trust-center-uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?Dedicated Trust Center public Supabase URL required}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?Dedicated Trust Center public anon key required}
+        NEXT_PUBLIC_API_URL: ${TRUST_CENTER_PUBLIC_API_URL:?Trust Center public API URL required}
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      NEXT_PUBLIC_API_URL: ${TRUST_CENTER_PUBLIC_API_URL}
+      API_URL: http://backend:4000
+      NEXT_PUBLIC_DEMO_MODE: "false"
+    ports:
+      - "127.0.0.1:${TRUST_CENTER_WEB_PORT:-3101}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  trust-center-uploads:

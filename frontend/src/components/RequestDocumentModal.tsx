@@ -443,7 +443,7 @@ export default function RequestDocumentModal({ initialDocument, isOpen, onClose 
                                 {/* Submit Button */}
                                 <button
                                     type="submit"
-                                    disabled={status === 'submitting' || selectedDocuments.length === 0 || (ndaUrl && !ndaAccepted)}
+                                    disabled={status === 'submitting' || selectedDocuments.length === 0 || (!!ndaUrl && !ndaAccepted)}
                                     className="w-full py-3 px-4 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                                 >
                                     {status === 'submitting' ? (
