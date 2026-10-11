@@ -33,6 +33,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:?Verified Trust Center sender required}
+      EMAIL_REPLY_TO: ${EMAIL_REPLY_TO:-}
     ports:
       - "127.0.0.1:${TRUST_CENTER_API_PORT:-4101}:4000"
     volumes:

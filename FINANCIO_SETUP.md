@@ -99,6 +99,10 @@ Required configuration:
   email downloads use the public HTTPS origin instead of a container/localhost URL.
 - `EMAIL_PROVIDER` plus its dedicated provider credential and verified
   `SMTP_FROM`: real delivery must be tested before using restricted document links.
+- `EMAIL_REPLY_TO`: an existing monitored mailbox for replies, currently
+  `catchall@financioflow.com`. The verified Resend sender
+  `security@trust.financioflow.com` does not create a receiving mailbox in Proton.
+  This setting applies to backend email; Supabase Auth SMTP is configured separately.
 - `TRUST_CENTER_SOURCE_REPOSITORY`: defaults to
   `thepsychonaut421/Financio-Flow-ERP`.
 - `TRUST_CENTER_GITHUB_TOKEN`: backend-only credential scoped to the one private
