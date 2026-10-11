@@ -13,7 +13,7 @@ const reviewSchema = z.object({ revision: z.number().int().positive(), decision:
 function fail(res: Response, error: unknown) {
   if (error instanceof EvidenceError) return res.status(error.status).json({ error: error.message });
   const code = (error as { code?: string })?.code;
-  const status = code === '40001' ? 409 : code === 'P0002' ? 404 : code === '42501' ? 403 : 503;
+  const status = code === 'PT409' || code === '40001' ? 409 : code === 'P0002' ? 404 : code === '42501' ? 403 : 503;
   return res.status(status).json({ error: status === 409 ? 'Draft changed or already reviewed; reload before acting' : status === 404 ? 'Draft not found' : 'Changelog operation unavailable' });
 }
 router.get('/config', (_req, res) => {

@@ -274,6 +274,18 @@ CI also fails on high or critical production dependency advisories with
 `npm audit --omit=dev --audit-level=high`. Advisory results are a dated dependency
 check, not a claim that the application has no security findings.
 The upstream Next.js build skips typechecking, so CI runs it separately.
+For an existing Trust Center already initialized through migration037, apply
+`supabase/migrations/038_changelog_conflict_response.sql` once with the dedicated
+database `PG*` bindings and verified TLS:
+
+```sh
+psql -X --set=ON_ERROR_STOP=1 --single-transaction \
+  --file=supabase/migrations/038_changelog_conflict_response.sql
+```
+
+This preserves review data and permissions and returns an explicit PostgREST
+HTTP 409 for stale revisions. Do not rerun the fresh-project initializer against
+an existing application database. A fresh initialization includes migration038.
 Tests must verify access control, revision conflicts, and
 publish history in addition to ordinary build checks. The Trust Center repository
 has its own upstream GitHub Actions workflows; it does not inherit the ERP's

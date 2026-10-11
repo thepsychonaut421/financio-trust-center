@@ -13,6 +13,7 @@ describe('Transactional changelog review (PostgreSQL engine)', () => {
       CREATE TABLE security_updates(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),title text,content text,published_at timestamptz);
       INSERT INTO admin_users VALUES ('${actor}','${email}');`);
     await db.exec(readFileSync(resolve(__dirname, '../../../../supabase/migrations/035_assisted_changelog.sql'), 'utf8'));
+    await db.exec(readFileSync(resolve(__dirname, '../../../../supabase/migrations/038_changelog_conflict_response.sql'), 'utf8'));
   }, 30000);
   afterAll(async () => db?.close());
   beforeEach(async () => { await db.exec('RESET ROLE; TRUNCATE security_updates,changelog_review_events,changelog_drafts CASCADE'); });
@@ -28,7 +29,7 @@ describe('Transactional changelog review (PostgreSQL engine)', () => {
     const draft = await create();
     expect(await count('security_updates')).toBe(0);
     await act(draft.id, 1, 'edit');
-    await expect(act(draft.id, 1, 'publish')).rejects.toMatchObject({ code: '40001' });
+    await expect(act(draft.id, 1, 'publish')).rejects.toMatchObject({ code: 'PT409' });
     expect(await count('security_updates')).toBe(0);
     await act(draft.id, 2, 'publish');
     expect(await count('security_updates')).toBe(1);
@@ -45,7 +46,7 @@ describe('Transactional changelog review (PostgreSQL engine)', () => {
   });
   test('rejection is recorded without publication and cannot later be silently published', async () => {
     const draft = await create(); await act(draft.id, 1, 'reject');
-    await expect(act(draft.id, 2, 'publish')).rejects.toMatchObject({ code: '40001' });
+    await expect(act(draft.id, 2, 'publish')).rejects.toMatchObject({ code: 'PT409' });
     expect(await count('security_updates')).toBe(0);
   });
   test('audit failure rolls back the state transition and public entry', async () => {
@@ -70,9 +71,10 @@ describe('Transactional changelog review (PostgreSQL engine)', () => {
     await expect(db.exec('DELETE FROM changelog_review_events')).rejects.toMatchObject({ code: '42501' });
   });
   test.each(['anon', 'authenticated'])('%s cannot read private evidence or invoke reviewer RPCs', async role => {
-    await create(); await db.exec(`SET ROLE ${role}`);
+    const draft = await create(); await db.exec(`SET ROLE ${role}`);
     await expect(db.exec('SELECT * FROM changelog_drafts')).rejects.toMatchObject({ code: '42501' });
     await expect(db.query('SELECT * FROM create_changelog_draft($1,$2,$3::jsonb,$4::uuid,$5)', ['Title', 'Content', '{}', actor, email])).rejects.toMatchObject({ code: '42501' });
+    await expect(act(draft.id, 1, 'publish')).rejects.toMatchObject({ code: '42501' });
     await db.exec('RESET ROLE');
   });
 });

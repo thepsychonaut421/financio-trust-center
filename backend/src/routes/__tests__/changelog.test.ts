@@ -35,8 +35,8 @@ describe('Draft review routes', () => {
     expect(supabase.rpc).toHaveBeenCalledWith('review_changelog_draft', expect.objectContaining({ p_revision: 2, p_actor_email: 'reviewer@example.com', p_action: 'publish', p_title: null, p_content: null }));
     expect(supabase.from).not.toHaveBeenCalled();
   });
-  test('returns conflict without retrying stale approval', async () => {
-    (supabase.rpc as jest.Mock).mockResolvedValue({ data: null, error: { code: '40001' } });
+  test.each(['PT409', '40001'])('returns conflict without retrying stale approval (%s)', async code => {
+    (supabase.rpc as jest.Mock).mockResolvedValue({ data: null, error: { code } });
     expect((await request(app).post(`/api/changelog/${id}/review`).set('Authorization', auth).send({ revision: 1, decision: 'publish', note: 'Reviewed', confirm: true })).status).toBe(409);
     expect(supabase.rpc).toHaveBeenCalledTimes(1);
   });
