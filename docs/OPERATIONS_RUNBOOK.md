@@ -67,6 +67,10 @@ Suite file:
 
 ## 4) Database backup
 
+For the **Financio dedicated hosted Supabase deployment**, use
+[FINANCIO_RECOVERY.md](FINANCIO_RECOVERY.md). The two scripts below operate only
+on the original local development database container and are not production backups.
+
 Creates a PostgreSQL custom-format dump from `trust-center-db`.
 
 Run:

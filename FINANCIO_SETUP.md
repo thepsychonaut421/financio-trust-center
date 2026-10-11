@@ -236,6 +236,12 @@ presence of Supabase Storage services in the upstream development stack does not
 move those documents to Supabase Storage. The production template persists
 `/app/uploads` in the dedicated `trust-center-uploads` named volume.
 
+The dedicated deployment backup and isolated drill are described in
+[docs/FINANCIO_RECOVERY.md](docs/FINANCIO_RECOVERY.md). They cover the native SQL
+schemas, local uploads and explicitly listed configuration files. Supabase
+provider-level Auth/SMTP settings and real document delivery still need separate
+recovery verification.
+
 Before release and periodically afterward:
 
 1. Back up the dedicated Supabase database/auth project and the upload volume in a
@@ -255,6 +261,10 @@ Before release and periodically afterward:
    database, authorization, or mail-delivery check.
 
 ## Validation and limits
+
+Use [docs/FINANCIO_READINESS.md](docs/FINANCIO_READINESS.md) for content preparation
+and the remaining operator acceptance steps. The original uploader publishes
+documents immediately; it must not be used as a private document-draft workspace.
 
 Development checks should run in the adapted repository:
 

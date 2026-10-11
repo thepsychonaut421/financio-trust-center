@@ -60,7 +60,7 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: GitHub credential setup tests
+      - name: Operator setup and backup safety tests
         working-directory: .
         run: python3 -m unittest discover -s scripts/tests -v
 
