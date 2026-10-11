@@ -2,7 +2,7 @@ import express from 'express';
 import { supabase } from '../server';
 
 const router = express.Router();
-const DEFAULT_NDA_URL = '/nda-sample.html';
+import { approvedNdaUrl } from '../utils/documentAccess';
 const PUBLIC_SETTINGS_FIELDS = [
   'id', 'company_name', 'company_logo_url', 'favicon_url',
   'primary_color', 'secondary_color', 'accent_color', 'font_family',
@@ -17,7 +17,7 @@ const DEFAULT_PUBLIC_SETTINGS = {
   hero_subtitle: 'Security documents and approved updates for Financio Flow.',
   primary_color: '#1e3a8a',
   secondary_color: '#475569',
-  nda_url: DEFAULT_NDA_URL,
+  nda_url: null,
 };
 
 // Get public trust center settings
@@ -40,7 +40,7 @@ router.get('/', async (req, res) => {
     );
     res.json({
       ...publicSettings,
-      nda_url: settings.nda_url || DEFAULT_NDA_URL,
+      nda_url: approvedNdaUrl(settings.nda_url),
     });
   } catch (error: unknown) {
     console.error('Route error:', error);

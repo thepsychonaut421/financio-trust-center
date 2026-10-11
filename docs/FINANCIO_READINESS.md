@@ -11,16 +11,22 @@ unpublished until that decision is made.
 | --- | --- | --- |
 | Security overview | Describe the actual service, access process, and security contact; substantiate each control with current evidence. | Approve wording and intended public/restricted audience. |
 | Security changelog | Use Admin → Changelog Review to collect the observed source SHA and its matching CI status. Edit the generated draft. | Approve publication; CI alone does not establish deployment or finding closure. |
-| NDA | The upstream `/nda-sample.html` remains a sample. | Replace it with approved terms and verify the access-request acceptance flow before NDA-protected documents. |
+| NDA | The upstream `/nda-sample.html` is excluded from active NDA settings. | Replace it with approved terms and verify the access-request acceptance flow before NDA-protected documents. |
 | Privacy / terms links | Add the applicable approved policy URLs in Admin → Settings. | Confirm that the policies actually cover Trust Center request data and document access. |
 | Reports / certifications | Upload actual current reports and assign their access level and validity. | Verify issuer, scope and expiration; do not use upstream demo content as evidence. |
 | Incident / vulnerability contact | Security contact is `security@financioflow.com`; admin/support is `info@financioflow.com`. | Establish mailbox ownership and response process. |
 
-The original document upload action **publishes the document immediately**. It
-is not a document-draft workspace. Prepare and approve document content outside
-the uploader first; use the changelog draft workflow only for updates. Do not
-upload confidential reports until the domain approval reuse, expiration and
-magic-link access rules have been checked for the intended audience.
+Document uploads and file replacements are now private drafts. Review the file
+using the administrator-only preview, then explicitly choose Published. Requests
+remain pending until a human decision, including for whitelisted domains.
+Approval emails contain an access-page link without document attachments.
+Download checks enforce publication, expiry, revocation, organization status and
+request-specific NDA acceptance. The upstream sample is disabled as active terms.
+
+Review the prepared legal and security pack in [review/README.md](review/README.md).
+The operator's Impressum identity was confirmed by the user. Final wording,
+retention, provider contracts/transfer safeguards and NDA activation remain
+manual decisions; draft material must not be presented as an audit report.
 
 ## Operational acceptance
 

@@ -6,6 +6,7 @@ import { generateMagicLinkToken, getMagicLinkExpiration } from '../../utils/magi
 import { sendMagicLinkEmail, sendRejectionEmail } from '../../utils/email';
 import { logActivity } from '../../utils/activityLogger';
 import { handleError } from '../../utils/errorHandler';
+import { requestedPublishedDocuments, currentNdaUrl } from '../../utils/documentAccess';
 
 const router = express.Router();
 
@@ -98,163 +99,82 @@ router.get('/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Approve document request (admin only)
+class ApprovalError extends Error {
+  constructor(public statusCode: number, message: string) { super(message); }
+}
+
+async function approveRequest(id: string, req: AuthRequest, expirationDays?: number | null, notes?: string) {
+  if (expirationDays != null && (!Number.isInteger(expirationDays) || expirationDays < 1 || expirationDays > 365)) {
+    throw new ApprovalError(400, 'Expiration must be between 1 and 365 whole days');
+  }
+  const { data: request, error } = await supabase.from('document_requests')
+    .select('*, organizations(*)').eq('id', id).maybeSingle();
+  if (error) throw error;
+  if (!request) throw new ApprovalError(404, 'Request not found');
+  if (request.status !== 'pending') throw new ApprovalError(409, 'Only pending requests can be approved');
+  if (request.organization_id && (!request.organizations || request.organizations.status === 'no_access'
+    || request.organizations.is_active === false)) {
+    throw new ApprovalError(403, 'Organization access is blocked or inactive');
+  }
+  const documents = await requestedPublishedDocuments(request.document_ids || []);
+  if (!documents?.length) throw new ApprovalError(409, 'Requested documents are unavailable');
+  if (documents.some(doc => doc.requires_nda) && !await currentNdaUrl()) {
+    throw new ApprovalError(409, 'NDA_UNAVAILABLE');
+  }
+  const token = generateMagicLinkToken();
+  const expiration = getMagicLinkExpiration(Math.min(expirationDays || 7, 7));
+  const accessExpiresAt = expirationDays ? getMagicLinkExpiration(expirationDays).toISOString() : null;
+  const { data: updatedRequest, error: updateError } = await supabase.from('document_requests')
+    .update({ status: 'approved', magic_link_token: token, magic_link_expires_at: expiration.toISOString(),
+      reviewed_by: req.admin!.id, reviewed_at: new Date().toISOString(), admin_notes: notes || null,
+      access_expires_at: accessExpiresAt, expiration_days: expirationDays || null,
+      nda_accepted_at: null, accepted_nda_url: null,
+    }).eq('id', id).eq('status', 'pending').select().maybeSingle();
+  if (updateError) throw updateError;
+  if (!updatedRequest) throw new ApprovalError(409, 'Request already reviewed');
+  let emailSent = false;
+  try {
+    await sendMagicLinkEmail({ requesterName: request.requester_name, requesterEmail: request.requester_email,
+      documents: documents.map(doc => ({ id: doc.id, title: doc.title })), magicLinkToken: token,
+      magicLinkUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/access/${token}`,
+      expirationDate: expiration.toISOString(),
+    });
+    emailSent = true;
+  } catch { console.error('Approval email delivery request failed'); }
+  await logActivity({ adminId: req.admin!.id, adminEmail: req.admin!.email,
+    actionType: 'approval', entityType: 'request', entityId: id,
+    entityName: `Request from ${request.requester_name}`, oldValue: { status: 'pending' },
+    newValue: { status: 'approved' }, description: `Approved document request for: ${documents.map(doc => doc.title).join(', ')}`,
+    ipAddress: req.ip, userAgent: req.headers['user-agent'],
+  });
+  dispatchWebhook('request.approved', updatedRequest);
+  return { ...updatedRequest, emailSent, ...(!emailSent ? { emailError: 'Approval saved, but email delivery could not be requested.' } : {}) };
+}
+
 router.patch('/:id/approve', requireAdmin, async (req: AuthRequest, res) => {
   try {
-    const { id } = req.params;
-    const { admin_notes, expiration_days } = req.body;
-
-    // Get request
-    const { data: request, error: requestError } = await supabase
-      .from('document_requests')
-      .select('*, organizations(*)')
-      .eq('id', id)
-      .single();
-
-    if (requestError || !request) {
-      return res.status(404).json({ error: 'Request not found' });
-    }
-
-    // Generate magic link
-    const token = generateMagicLinkToken();
-    const expiration = getMagicLinkExpiration();
-
-    // Calculate access expiration if specified
-    let accessExpiresAt = null;
-    if (expiration_days && expiration_days > 0) {
-      const expirationDate = new Date();
-      expirationDate.setDate(expirationDate.getDate() + expiration_days);
-      accessExpiresAt = expirationDate.toISOString();
-    }
-
-    // Update request
-    const { data: updatedRequest, error: updateError } = await supabase
-      .from('document_requests')
-      .update({
-        status: 'approved',
-        magic_link_token: token,
-        magic_link_expires_at: expiration.toISOString(),
-        reviewed_by: req.admin!.id,
-        reviewed_at: new Date().toISOString(),
-        admin_notes: admin_notes || null,
-        access_expires_at: accessExpiresAt,
-        expiration_days: expiration_days || null,
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-
-    if (updateError) throw updateError;
-
-    // If organization exists, add documents to approved list
-    if (request.organization_id && request.organizations) {
-      // Check if organization has access (only block no_access)
-      const org = request.organizations as any;
-      if (org.status === 'no_access') {
-        return res.status(403).json({
-          error: 'Cannot approve request. Organization has been blocked (No Access).',
-          organization_status: org.status
-        });
-      }
-
-      const currentApproved = org.approved_document_ids || [];
-      const newApproved = [...new Set([...currentApproved, ...request.document_ids])];
-
-      // Set status to 'conditional' if this is the first approval (status not yet set)
-      const updateData: any = {
-        approved_document_ids: newApproved,
-        last_approved_at: new Date().toISOString(),
-        first_approved_at: org.first_approved_at || new Date().toISOString(),
-      };
-
-      // Restore archived orgs or set initial status
-      if (!org.status || org.status === 'no_access' || org.status === 'archived' || !org.is_active) {
-        updateData.status = 'conditional';
-        updateData.is_active = true;
-        updateData.revoked_at = null;
-      }
-
-      await supabase
-        .from('organizations')
-        .update(updateData)
-        .eq('id', request.organization_id);
-
-      // Create audit records
-      for (const docId of request.document_ids) {
-        await supabase
-          .from('organization_document_approvals')
-          .insert({
-            organization_id: request.organization_id,
-            document_id: docId,
-            approved_by: req.admin!.id,
-            request_id: id,
-          });
-      }
-    }
-
-    // Get full document details including file paths
-    const { data: documents } = await supabase
-      .from('documents')
-      .select('id, title, file_url, file_name, file_type')
-      .in('id', request.document_ids);
-
-    // Prepare document data with file paths and IDs for email
-    const documentsForEmail = (documents || []).map(doc => ({
-      id: doc.id,
-      title: doc.title,
-      filePath: doc.file_url || undefined,
-      fileName: doc.file_name || undefined,
-      fileType: doc.file_type || undefined,
-    }));
-
-    // Send magic link email with attachments (non-blocking - don't fail request if email fails)
-    const magicLinkUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/access/${token}`;
-    let emailSent = false;
-    let emailError = null;
-
-    try {
-      await sendMagicLinkEmail({
-        requesterName: request.requester_name,
-        requesterEmail: request.requester_email,
-        documents: documentsForEmail,
-        magicLinkToken: token,
-        magicLinkUrl,
-        expirationDate: expiration.toLocaleDateString(),
-      });
-      emailSent = true;
-    } catch (emailErr: any) {
-      emailError = emailErr.message;
-      console.error(`Failed to send email to ${request.requester_email}:`, emailErr);
-    }
-
-    // Log the approval
-    const docTitles = (documents || []).map(d => d.title).join(', ');
-    await logActivity({
-      adminId: req.admin!.id,
-      adminEmail: req.admin!.email,
-      actionType: 'approval',
-      entityType: 'request',
-      entityId: id,
-      entityName: `Request from ${request.requester_name}`,
-      oldValue: { status: 'pending' },
-      newValue: { status: 'approved' },
-      description: `Approved document request for: ${docTitles}`,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
-
-    // Dispatch webhook
-    dispatchWebhook('request.approved', updatedRequest);
-
-    res.json({
-      ...updatedRequest,
-      emailSent,
-      emailError: emailError || undefined,
-    });
-  } catch (error: any) {
+    res.json(await approveRequest(req.params.id, req, req.body.expiration_days, req.body.admin_notes));
+  } catch (error) {
+    if (error instanceof ApprovalError) return res.status(error.statusCode).json({ error: error.message });
     handleError(res, error, 'Approve request error');
   }
+});
+
+// Revocation takes effect on both the access page and every subsequent download.
+router.patch('/:id/revoke', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { data, error } = await supabase.from('document_requests')
+      .update({ status: 'denied', magic_link_token: null, magic_link_expires_at: new Date().toISOString(),
+        reviewed_by: req.admin!.id, reviewed_at: new Date().toISOString(),
+      }).eq('id', req.params.id).in('status', ['approved', 'auto_approved']).select().maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(409).json({ error: 'No approved request to revoke' });
+    await logActivity({ adminId: req.admin!.id, adminEmail: req.admin!.email, actionType: 'update',
+      entityType: 'request', entityId: data.id, description: 'Revoked document access',
+      newValue: { status: 'denied' }, ipAddress: req.ip, userAgent: req.headers['user-agent'],
+    });
+    res.json(data);
+  } catch (error) { handleError(res, error, 'Revoke request error'); }
 });
 
 // Deny document request (admin only)
@@ -304,81 +224,25 @@ router.patch('/:id/deny', requireAdmin, async (req: AuthRequest, res) => {
   }
 });
 
-// Batch approve requests (admin only)
+// Batch decisions use the same checks and delivery path as a single approval.
 router.post('/batch-approve', requireAdmin, async (req: AuthRequest, res) => {
+  const ids = req.body.request_ids;
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > 20 || ids.some(id => typeof id !== 'string')) {
+    return res.status(400).json({ error: 'Select between 1 and 20 request IDs' });
+  }
   try {
-    const { request_ids } = req.body;
-
-    if (!Array.isArray(request_ids) || request_ids.length === 0) {
-      return res.status(400).json({ error: 'request_ids array is required' });
-    }
-
     const results = [];
-
-    for (const requestId of request_ids) {
-      const { data: request } = await supabase
-        .from('document_requests')
-        .select('*, organizations(*)')
-        .eq('id', requestId)
-        .single();
-
-      if (request && request.status === 'pending') {
-        const token = generateMagicLinkToken();
-        const expiration = getMagicLinkExpiration();
-
-        await supabase
-          .from('document_requests')
-          .update({
-            status: 'approved',
-            magic_link_token: token,
-            magic_link_expires_at: expiration.toISOString(),
-            reviewed_by: req.admin!.id,
-            reviewed_at: new Date().toISOString(),
-          })
-          .eq('id', requestId);
-
-        // Update organization approved documents
-        if (request.organization_id) {
-          const { data: org } = await supabase
-            .from('organizations')
-            .select('approved_document_ids')
-            .eq('id', request.organization_id)
-            .single();
-
-          if (org) {
-            const newApproved = [...new Set([...org.approved_document_ids, ...request.document_ids])];
-            await supabase
-              .from('organizations')
-              .update({ approved_document_ids: newApproved })
-              .eq('id', request.organization_id);
-          }
-        }
-
-        results.push({ id: requestId, status: 'approved' });
+    for (const id of new Set<string>(ids)) {
+      try {
+        const approved = await approveRequest(id, req);
+        results.push({ id, status: 'approved', emailSent: approved.emailSent });
+      } catch (error) {
+        if (!(error instanceof ApprovalError)) throw error;
+        results.push({ id, status: 'skipped', error: error.message });
       }
     }
-
-    // Log bulk action
-    await logActivity({
-      adminId: req.admin!.id,
-      adminEmail: req.admin!.email,
-      actionType: 'bulk_approval',
-      entityType: 'request',
-      entityId: request_ids.join(','),
-      entityName: `${results.length} requests`,
-      description: `Bulk approved ${results.length} document requests`,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
-
-    for (const r of results) {
-      dispatchWebhook('request.approved', { id: r.id, status: 'approved' });
-    }
-
     res.json({ success: true, results });
-  } catch (error: any) {
-    handleError(res, error, 'Batch approve error');
-  }
+  } catch (error) { handleError(res, error, 'Batch approve error'); }
 });
 
 // Batch deny requests (admin only)

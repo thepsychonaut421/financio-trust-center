@@ -5,7 +5,7 @@ import { logActivity } from '../../utils/activityLogger';
 import { handleError } from '../../utils/errorHandler';
 
 const router = express.Router();
-const DEFAULT_NDA_URL = '/nda-sample.html';
+import { approvedNdaUrl } from '../../utils/documentAccess';
 
 // Get trust center settings (admin only)
 router.get('/', requireAdmin, async (req, res) => {
@@ -20,7 +20,7 @@ router.get('/', requireAdmin, async (req, res) => {
 
     res.json({
       ...data,
-      nda_url: data?.nda_url || DEFAULT_NDA_URL,
+      nda_url: approvedNdaUrl(data?.nda_url),
     });
   } catch (error: any) {
     handleError(res, error, 'Get settings error');

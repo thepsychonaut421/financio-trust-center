@@ -3,8 +3,8 @@ import { sendEmail } from '../../services/emailService';
 
 jest.mock('../../services/emailService', () => ({ sendEmail: jest.fn().mockResolvedValue(undefined) }));
 
-describe('Approval email public download URL', () => {
-  it('uses the configured public API origin for encoded token/document paths, with no mail sent', async () => {
+describe('Approval email public access URL', () => {
+  it('uses the public access-page origin without direct download links, with no mail sent', async () => {
     const previousPublicUrl = process.env.BACKEND_PUBLIC_URL;
     const previousInternalUrl = process.env.API_URL;
     const previousFrontendUrl = process.env.FRONTEND_URL;
@@ -27,9 +27,9 @@ describe('Approval email public download URL', () => {
       expect(sendEmail).toHaveBeenCalledTimes(1);
       const message = (sendEmail as jest.Mock).mock.calls[0][0] as { html: string; attachments?: unknown };
       const links = Array.from(message.html.matchAll(/href="([^"]+)"/g), match => new URL(match[1]));
-      const download = links.find(link => link.pathname.endsWith(`/download/${documentId}`));
-      expect(download?.origin).toBe('https://trust.financioflow.com');
-      expect(download?.pathname).toBe(`/api/access/${encodeURIComponent(token)}/download/${encodeURIComponent(documentId)}`);
+      expect(links).toHaveLength(1);
+      expect(links[0].pathname).toBe(`/access/${encodeURIComponent(token)}`);
+      expect(links.some(link => link.pathname.includes('/download/'))).toBe(false);
       expect(links.every(link => link.origin === 'https://trust.financioflow.com')).toBe(true);
       expect(message.html).not.toMatch(/localhost|http:\/\/backend/);
       expect(message.attachments).toBeUndefined();

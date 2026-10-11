@@ -82,7 +82,7 @@ export default function AdminLayout({
   const [isLoading, setIsLoading] = useState(true);
 
   // Don't protect the login page
-  const isLoginPage = pathname === '/admin/login';
+  const isLoginPage = ['/admin/login', '/admin/forgot-password', '/admin/reset-password'].includes(pathname);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -123,6 +123,7 @@ export default function AdminLayout({
     const supabase = createClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
+        if (isLoginPage) return;
         setIsAuthenticated(false);
         router.push('/admin/login');
       }

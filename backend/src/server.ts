@@ -71,7 +71,8 @@ app.use(demoModeMiddleware);
 
 // Request logging
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  const loggedPath = req.path.replace(/^(\/api\/access\/)[^/]+/, '$1[redacted]');
+  console.log(`[${new Date().toISOString()}] ${req.method} ${loggedPath}`);
   next();
 });
 

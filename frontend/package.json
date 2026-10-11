@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test:changelog-ui": "node scripts/changelog-ui-smoke.cjs"
+    "test:changelog-ui": "node scripts/changelog-ui-smoke.cjs",
+    "test:access-ui": "node scripts/access-ui-smoke.cjs"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",

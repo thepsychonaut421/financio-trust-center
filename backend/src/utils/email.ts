@@ -1,7 +1,5 @@
-import fs from 'fs';
-import { sendEmail, EmailAttachment } from '../services/emailService';
+import { sendEmail } from '../services/emailService';
 import { validateEmailAddress, sanitizeEmailForLogging } from './emailValidation';
-import { resolveUploadPath } from './safePath';
 
 function escapeHtml(str: string): string {
   return str
@@ -35,64 +33,11 @@ export const sendMagicLinkEmail = async (data: MagicLinkEmailData): Promise<void
     throw new Error(`Invalid email address format: ${sanitized}`);
   }
 
-  const API_URL = process.env.FRONTEND_URL || 'http://localhost:4000';
-  const attachments: EmailAttachment[] = [];
-  const attachmentErrors: string[] = [];
-
-  // Process document attachments
-  for (const doc of data.documents) {
-    if (doc.filePath && doc.fileName) {
-      try {
-        const fullPath = resolveUploadPath(doc.filePath);
-
-        // Check if file exists
-        if (!fs.existsSync(fullPath)) {
-          attachmentErrors.push(`File not found: ${doc.fileName}`);
-          continue;
-        }
-
-        // Add attachment (size validation happens in emailService)
-        attachments.push({
-          filename: doc.fileName,
-          path: fullPath,
-          contentType: doc.fileType || 'application/octet-stream',
-        });
-      } catch (error: any) {
-        const errorMsg = error.message || 'Unknown error';
-        console.error(`Error processing attachment ${doc.fileName}:`, errorMsg);
-        attachmentErrors.push(`${doc.fileName} (read error)`);
-      }
-    }
-  }
-
-  // Build email HTML with attachment info
-  const attachmentInfo = attachments.length > 0
-    ? `<p><strong>Documents attached:</strong> ${attachments.length} file(s)</p>`
-    : '';
-
-  const attachmentWarning = attachmentErrors.length > 0
-    ? `<p style="color: #d32f2f;"><small><strong>Note:</strong> Some documents could not be attached: ${attachmentErrors.join(', ')}. Please use the download links below.</small></p>`
-    : '';
-
-  // Generate individual download links for each document
-  // Use the public-facing backend URL for download links
-  // Railway provides RAILWAY_PUBLIC_DOMAIN automatically
-  const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null;
-  const backendUrl = process.env.BACKEND_PUBLIC_URL || railwayDomain || process.env.API_URL || 'http://localhost:4000';
-  const documentLinks = data.documents.map(doc => {
-    const downloadUrl = `${backendUrl}/api/access/${data.magicLinkToken}/download/${doc.id}`;
-    return `
-      <tr>
-        <td style="padding: 12px; border-bottom: 1px solid #eee;">
-          <strong>${escapeHtml(doc.title)}</strong>
-          ${doc.fileName ? `<br><small style="color: #666;">${escapeHtml(doc.fileName)}</small>` : ''}
-        </td>
-        <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">
-          <a href="${downloadUrl}" style="display: inline-block; padding: 8px 16px; background-color: #28a745; color: #fff; text-decoration: none; border-radius: 4px; font-size: 14px;">Download</a>
-        </td>
-      </tr>
-    `;
-  }).join('');
+  // Confidential documents remain behind the revocable access check.
+  // Never copy document bytes into an approval email.
+  const documentLinks = data.documents.map(doc => `
+    <tr><td style="padding:12px"><strong>${escapeHtml(doc.title)}</strong></td></tr>
+  `).join('');
 
   const emailHtml = `
     <!DOCTYPE html>
@@ -111,9 +56,7 @@ export const sendMagicLinkEmail = async (data: MagicLinkEmailData): Promise<void
       <div class="container">
         <h2>Your Document Request Has Been Approved</h2>
         <p>Hi ${escapeHtml(data.requesterName)},</p>
-        <p>Your request has been approved. Click the download buttons below to get your documents:</p>
-        ${attachmentInfo}
-        ${attachmentWarning}
+        <p>Your request has been approved. Use the access link to review any required agreement and download your documents:</p>
         <table>
           ${documentLinks}
         </table>
@@ -121,7 +64,7 @@ export const sendMagicLinkEmail = async (data: MagicLinkEmailData): Promise<void
           ⏰ <strong>Links expire:</strong> ${data.expirationDate}
         </p>
         <p style="margin-top: 20px; font-size: 13px; color: #666;">
-          <a href="${data.magicLinkUrl}" style="color: #007bff;">View all documents online</a>
+          <a href="${escapeHtml(data.magicLinkUrl)}" style="color: #007bff;">View all documents online</a>
         </p>
         <div class="footer">
           <p><small>If you didn't request this, please ignore this email.</small></p>
@@ -137,7 +80,6 @@ export const sendMagicLinkEmail = async (data: MagicLinkEmailData): Promise<void
       from: process.env.SMTP_FROM || 'noreply@trustcenter.com',
       subject: 'Your Document Request Has Been Approved',
       html: emailHtml,
-      attachments: attachments.length > 0 ? attachments : undefined,
     });
 
     const sanitized = sanitizeEmailForLogging(data.requesterEmail);

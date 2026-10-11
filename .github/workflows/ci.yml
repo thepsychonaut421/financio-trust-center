@@ -125,3 +125,6 @@ jobs:
 
       - name: Changelog UI smoke
         run: npm run test:changelog-ui
+
+      - name: Recovery and document access UI smoke
+        run: npm run test:access-ui

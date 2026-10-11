@@ -3,208 +3,110 @@ import { supabase } from '../server';
 import fs from 'fs';
 import { logActivity } from '../utils/activityLogger';
 import { resolveUploadPath } from '../utils/safePath';
+import { sanitizeUploadFileName } from '../middleware/upload';
+import { accessRequestError, currentNdaUrl, isAvailableDocument } from '../utils/documentAccess';
 
 const router = express.Router();
+router.use((_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  next();
+});
 
-// Validate magic link and show access page
+async function findRequest(token: string) {
+  const { data, error } = await supabase.from('document_requests')
+    .select('*').eq('magic_link_token', token).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 router.get('/:token', async (req, res) => {
   try {
-    const { token } = req.params;
-
-    // First fetch the document request
-    const { data: request, error } = await supabase
-      .from('document_requests')
-      .select('*')
-      .eq('magic_link_token', token)
-      .single();
-
-    if (error || !request) {
-      console.error('Magic link lookup failed:', error?.message || 'No request found');
-      return res.status(404).json({ error: 'Invalid or expired link' });
-    }
-
-    // Check expiration
-    if (request.magic_link_expires_at && new Date(request.magic_link_expires_at) < new Date()) {
-      return res.status(403).json({ error: 'This link has expired' });
-    }
-
-    // Check status
-    if (!['approved', 'auto_approved'].includes(request.status)) {
-      return res.status(403).json({ error: 'Access not approved' });
-    }
-
-    // Fetch the documents separately using the document_ids array
-    let documents: any[] = [];
-    if (request.document_ids && request.document_ids.length > 0) {
-      const { data: docs, error: docsError } = await supabase
-        .from('documents')
-        .select('id, title, description, file_name, file_type, file_size, access_level')
-        .in('id', request.document_ids);
-
-      if (!docsError && docs) {
-        documents = docs;
-      }
-    }
-
-    // Track access
+    const request = await findRequest(req.params.token);
+    if (!request) return res.status(404).json({ error: 'Invalid or expired link' });
+    const denied = await accessRequestError(request);
+    if (denied) return res.status(403).json({ error: denied });
+    const { data, error } = await supabase.from('documents')
+      .select('id,title,description,file_name,file_type,file_size,access_level,requires_nda,status,is_current_version,expires_at')
+      .in('id', request.document_ids || []);
+    if (error) throw error;
+    const documents = (data || []).filter(isAvailableDocument);
     if (!request.magic_link_used_at) {
-      await supabase
-        .from('document_requests')
-        .update({ magic_link_used_at: new Date().toISOString() })
-        .eq('id', request.id);
+      const { error: updateError } = await supabase.from('document_requests')
+        .update({ magic_link_used_at: new Date().toISOString() }).eq('id', request.id);
+      if (updateError) throw updateError;
     }
-
-    res.json({
-      request: {
-        id: request.id,
-        requester_name: request.requester_name,
-        documents: documents,
-      },
-    });
-  } catch (error: any) {
-    console.error('Access route error:', error.message);
-    console.error('Route error:', error);
+    res.json({ request: { id: request.id, requester_name: request.requester_name, documents } });
+  } catch (error) {
+    console.error('Access lookup failed');
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Download document via magic link
 router.get('/:token/download/:document_id', async (req, res) => {
   try {
-    const { token, document_id } = req.params;
-
-    // Validate token and check document access
-    const { data: request, error } = await supabase
-      .from('document_requests')
-      .select('document_ids, status, magic_link_expires_at, requester_email')
-      .eq('magic_link_token', token)
-      .single();
-
-    if (error || !request) {
-      return res.status(404).json({ error: 'Invalid or expired link' });
-    }
-
-    if (request.magic_link_expires_at && new Date(request.magic_link_expires_at) < new Date()) {
-      return res.status(403).json({ error: 'This link has expired' });
-    }
-
-    if (!['approved', 'auto_approved'].includes(request.status)) {
-      return res.status(403).json({ error: 'Access not approved' });
-    }
-
-    if (!request.document_ids.includes(document_id)) {
+    const request = await findRequest(req.params.token);
+    if (!request) return res.status(404).json({ error: 'Invalid or expired link' });
+    const denied = await accessRequestError(request);
+    if (denied) return res.status(403).json({ error: denied });
+    if (!Array.isArray(request.document_ids) || !request.document_ids.includes(req.params.document_id)) {
       return res.status(403).json({ error: 'Document not included in this request' });
     }
-
-    // Get document
-    const { data: document, error: docError } = await supabase
-      .from('documents')
-      .select('file_url, file_name, file_type, requires_nda')
-      .eq('id', document_id)
-      .single();
-
-    if (docError || !document) {
-      return res.status(404).json({ error: 'Document not found' });
-    }
-
-    // NDA check skipped for magic link downloads — users already
-    // agreed to NDA terms when submitting the document request form
-
-    // Serve from local storage (consistent with documents.ts)
-    const filePath = resolveUploadPath(document.file_url);
-
-    if (!fs.existsSync(filePath)) {
-      // In demo mode, generate a placeholder file since Railway's filesystem is ephemeral
-      if (process.env.DEMO_MODE === 'true') {
-        console.log(`[DEMO] File not found at ${filePath}, serving placeholder for ${document.file_name}`);
-
-        const placeholderContent = `
-=== DEMO DOCUMENT ===
-Title: ${document.file_name}
-Type: ${document.file_type || 'application/octet-stream'}
-
-This is a placeholder document from the Trust Center demo.
-The original file is not available in the demo environment.
-
-In a production deployment, the actual document would be 
-downloaded here after admin approval.
-
-Thank you for testing the Trust Center!
-===========================
-`;
-        res.setHeader('Content-Disposition', `attachment; filename="${document.file_name}"`);
-        res.setHeader('Content-Type', 'text/plain');
-        return res.send(placeholderContent);
+    const { data: document, error } = await supabase.from('documents')
+      .select('*').eq('id', req.params.document_id).maybeSingle();
+    if (error) throw error;
+    if (!document || !isAvailableDocument(document)) return res.status(404).json({ error: 'Document not found' });
+    if (document.requires_nda) {
+      const ndaUrl = await currentNdaUrl();
+      if (!ndaUrl) return res.status(409).json({ error: 'NDA_UNAVAILABLE' });
+      if (!request.nda_accepted_at || request.accepted_nda_url !== ndaUrl) {
+        return res.status(403).json({ error: 'NDA_REQUIRED', nda_url: ndaUrl });
       }
-
-      console.error(`File not found at ${filePath}`);
-      return res.status(404).json({ error: 'File not found on server' });
     }
-
-    res.setHeader('Content-Disposition', `attachment; filename="${document.file_name}"`);
-    res.setHeader('Content-Type', document.file_type || 'application/octet-stream');
-
-    // Log document download
+    const filePath = resolveUploadPath(document.file_url);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found on server' });
     await logActivity({
-      adminId: 'public',
-      adminEmail: request.requester_email,
-      actionType: 'document_download',
-      entityType: 'document',
-      entityId: document_id,
+      adminId: 'public', adminEmail: request.requester_email,
+      actionType: 'document_download', entityType: 'document', entityId: document.id,
       entityName: document.file_name,
       description: `Document downloaded by ${request.requester_email}: ${document.file_name}`,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
+      ipAddress: req.ip, userAgent: req.headers['user-agent'],
     });
-
+    res.setHeader('Content-Disposition', `attachment; filename="${sanitizeUploadFileName(document.file_name).replace(/"/g, '')}"`);
+    res.setHeader('Content-Type', document.file_type || 'application/octet-stream');
     return res.sendFile(filePath);
-  } catch (error: any) {
-    console.error('Route error:', error);
+  } catch (error) {
+    console.error('Document access failed');
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Accept NDA via magic link token
 router.post('/:token/accept-nda', async (req, res) => {
   try {
-    const { token } = req.params;
-    const userAgent = req.headers['user-agent'];
-    const ip = req.ip;
-
-    // Validate token
-    const { data: request, error } = await supabase
-      .from('document_requests')
-      .select('requester_email, organization_id, status, magic_link_expires_at')
-      .eq('magic_link_token', token)
-      .single();
-
-    if (error || !request) {
-      return res.status(404).json({ error: 'Invalid or expired link' });
+    const request = await findRequest(req.params.token);
+    if (!request) return res.status(404).json({ error: 'Invalid or expired link' });
+    const denied = await accessRequestError(request);
+    if (denied) return res.status(403).json({ error: denied });
+    const ndaUrl = await currentNdaUrl();
+    if (!ndaUrl) return res.status(409).json({ error: 'NDA_UNAVAILABLE' });
+    if (req.body.nda_accepted !== true || req.body.nda_url !== ndaUrl) {
+      return res.status(400).json({ error: 'Explicit acceptance of the current NDA is required' });
     }
-
-    if (request.magic_link_expires_at && new Date(request.magic_link_expires_at) < new Date()) {
-      return res.status(403).json({ error: 'This link has expired' });
-    }
-
-    // Insert acceptance
-    const { error: insertError } = await supabase
-      .from('nda_acceptances')
-      .insert({
-        email: request.requester_email,
-        organization_id: request.organization_id,
-        ip_address: ip,
-        user_agent: userAgent
-      });
-
+    const { error: insertError } = await supabase.from('nda_acceptances').insert({
+      email: request.requester_email, organization_id: request.organization_id,
+      request_id: request.id, nda_url: ndaUrl,
+      ip_address: req.ip, user_agent: req.headers['user-agent'],
+    });
     if (insertError) throw insertError;
-
-    res.json({ message: 'NDA Accepted successfully' });
-
-  } catch (error: any) {
-    console.error('Route error:', error);
+    const { error: updateError } = await supabase.from('document_requests')
+      .update({ nda_accepted_at: new Date().toISOString(), accepted_nda_url: ndaUrl })
+      .eq('id', request.id).eq('magic_link_token', req.params.token);
+    if (updateError) throw updateError;
+    res.json({ message: 'NDA accepted successfully' });
+  } catch (error) {
+    console.error('NDA acceptance failed');
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 export default router;
-
