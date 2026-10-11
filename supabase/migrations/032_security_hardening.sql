@@ -197,7 +197,18 @@ UPDATE storage.buckets SET
 WHERE id = 'trust-center-assets';
 
 -- Enable RLS on storage.buckets to prevent unauthorized bucket creation
-ALTER TABLE storage.buckets ENABLE ROW LEVEL SECURITY;
+-- Hosted Supabase owns this table and already enables RLS. Its migration role
+-- can manage policies but cannot ALTER the provider-owned table, even to repeat
+-- the existing setting. Local installations still need to enable it explicitly.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_class
+        WHERE oid = 'storage.buckets'::regclass AND relrowsecurity
+    ) THEN
+        ALTER TABLE storage.buckets ENABLE ROW LEVEL SECURITY;
+    END IF;
+END $$;
 
 CREATE POLICY "Anyone can view buckets"
 ON storage.buckets FOR SELECT

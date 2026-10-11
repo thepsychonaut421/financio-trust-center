@@ -10,7 +10,7 @@ jest.mock('../../server', () => ({
         from: jest.fn(() => ({
             select: jest.fn(() => ({
                 eq: jest.fn(() => ({
-                    single: jest.fn(),
+                    maybeSingle: jest.fn(),
                 })),
             })),
             update: jest.fn(() => ({
@@ -38,7 +38,7 @@ describe('Document Access Routes', () => {
                 from: jest.fn().mockReturnThis(),
                 select: jest.fn().mockReturnThis(),
                 eq: jest.fn().mockReturnThis(),
-                single: jest.fn().mockResolvedValue({ data: null, error: { message: 'Not found' } }),
+                maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
             }));
 
             const res = await request(app).get('/api/access/invalid-token');

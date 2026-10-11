@@ -40,6 +40,7 @@ export default function AdminNav() {
     { href: '/admin', label: 'Dashboard' },
     { href: '/admin/documents', label: 'Documents' },
     { href: '/admin/controls', label: 'Controls' },
+    { href: '/admin/changelog', label: 'Changelog Review' },
     { href: '/admin/requests', label: 'Requests' },
     { href: '/admin/tickets', label: 'Tickets' },
     { href: '/admin/organizations', label: 'Organizations' },

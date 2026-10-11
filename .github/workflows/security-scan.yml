@@ -50,7 +50,12 @@ jobs:
         run: docker build -t trust-center-backend:ci -f backend/Dockerfile backend
 
       - name: Build frontend image
-        run: docker build -t trust-center-frontend:ci -f frontend/Dockerfile.dev frontend
+        run: >-
+          docker build -t trust-center-frontend:ci -f frontend/Dockerfile
+          --build-arg NEXT_PUBLIC_SUPABASE_URL=https://supabase.example.test
+          --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=ci-public-placeholder
+          --build-arg NEXT_PUBLIC_API_URL=https://api.example.test
+          frontend
 
       - name: Scan backend image
         shell: bash

@@ -1,5 +1,13 @@
 # The Open GRC Trust Center
 
+> **Financio adaptation:** this checkout builds on `kutcode/trust-center` at
+> `06cb59d899f24bcd2a4bba20b20b3de3ba273e80`. Read [FINANCIO_SETUP.md](FINANCIO_SETUP.md)
+> for the evidence draft/review workflow and isolated deployment template.
+> Salesforce is disabled here. OpenAI key provisioning and external deployment
+> have not been completed. The upstream feature descriptions below describe
+> the base project and are not a statement of Financio production status.
+> The badges below show upstream runs, not checks of this adaptation.
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/kutcode/trust-center/actions/workflows/ci.yml/badge.svg)](https://github.com/kutcode/trust-center/actions/workflows/ci.yml)
 [![Security Scan](https://github.com/kutcode/trust-center/actions/workflows/security-scan.yml/badge.svg)](https://github.com/kutcode/trust-center/actions/workflows/security-scan.yml)
@@ -23,7 +31,7 @@ An open-source security trust center platform for **The Open GRC** ecosystem, av
 - **Document Expiry Tracking**: Set expiration dates on documents with dashboard widget showing upcoming expirations, color-coded badges, and date picker in editor
 - **Admin Email Notifications**: Configurable email alerts when new document requests or support tickets are submitted
 - **Feature Toggles**: Enable/disable support tickets and admin notifications from Settings → Features
-- **Salesforce Integration (OAuth)**: Connect Salesforce and sync customer/account status to automatically manage organization access
+- **Salesforce Integration (OAuth)** *(upstream only; disabled in Financio)*: Connect Salesforce and sync customer/account status to automatically manage organization access
 - **Trust Center Customization**: Customize branding, colors, hero section, and content
 - **Multi-Layer Security**: Role-based access control with database, API, frontend, and storage protection
 
@@ -33,7 +41,7 @@ An open-source security trust center platform for **The Open GRC** ecosystem, av
 - **Backend**: Node.js with Express, TypeScript
 - **Database**: PostgreSQL (via Supabase)
 - **Auth**: Supabase Auth (admin-only), Magic links for document access
-- **Storage**: Supabase Storage
+- **Document Storage**: Persistent local files (`UPLOADS_DIR`); the upstream stack also includes Supabase Storage services
 - **Containerization**: Docker + Docker Compose
 - **CI/CD**: GitHub Actions (CI build/lint/test, Trivy security scan, API smoke tests)
 - **Testing**: Jest + Supertest (backend), ESLint (frontend + backend)

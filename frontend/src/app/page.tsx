@@ -8,10 +8,11 @@ async function getSettings(): Promise<TrustCenterSettings> {
   } catch {
     return {
       id: 'default',
-      primary_color: '#111827',
-      secondary_color: '#3b82f6',
-      hero_title: 'Security & Trust',
-      hero_subtitle: 'Learn about our commitment to keeping your data safe and secure',
+      company_name: 'Financio Flow',
+      primary_color: '#1e3a8a',
+      secondary_color: '#475569',
+      hero_title: 'Financio Flow Trust Center',
+      hero_subtitle: 'Security documents and approved updates for Financio Flow.',
     };
   }
 }

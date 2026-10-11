@@ -6,8 +6,8 @@ export default async function Header() {
 
   return (
     <HeaderClient
-      companyName={settings?.company_name || 'Trust Center'}
-      primaryColor={settings?.primary_color || '#111827'}
+      companyName={settings?.company_name || 'Financio Flow'}
+      primaryColor={settings?.primary_color || '#1e3a8a'}
       logoUrl={settings?.company_logo_url}
       isDemoMode={process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || process.env.DEMO_MODE === 'true'}
     />

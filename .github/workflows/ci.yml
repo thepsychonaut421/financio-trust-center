@@ -34,6 +34,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check production dependency advisories
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Lint (non-blocking unless strict mode is enabled)
         shell: bash
         run: |
@@ -57,6 +60,10 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Operator setup and backup safety tests
+        working-directory: .
+        run: python3 -m unittest discover -s scripts/tests -v
+
   frontend:
     name: Frontend Build & Lint
     runs-on: ubuntu-latest
@@ -77,6 +84,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Check production dependency advisories
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Detect ESLint config
         id: frontend_eslint
@@ -109,3 +119,12 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Changelog UI smoke
+        run: npm run test:changelog-ui
+
+      - name: Recovery and document access UI smoke
+        run: npm run test:access-ui

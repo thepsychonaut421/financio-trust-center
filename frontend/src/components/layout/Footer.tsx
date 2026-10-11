@@ -4,7 +4,7 @@ import Link from 'next/link';
 export default async function Footer() {
   const settings = await getSettings();
 
-  const footerText = settings?.footer_text || `© ${new Date().getFullYear()} ${settings?.company_name || 'Trust Center'}. All rights reserved.`;
+  const footerText = settings?.footer_text || `© ${new Date().getFullYear()} ${settings?.company_name || 'Financio Flow'}. All rights reserved.`;
   const footerLinks = settings?.footer_links || [];
 
   return (

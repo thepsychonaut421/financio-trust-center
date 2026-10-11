@@ -98,6 +98,20 @@ export default function EditDocumentPage() {
     }
   };
 
+  const previewFile = async () => {
+    if (!token || !document) return;
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/documents/${documentId}/admin-download`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Could not download the document preview');
+      const url = URL.createObjectURL(await response.blob());
+      const anchor = window.document.createElement('a');
+      anchor.href = url; anchor.download = document.file_name;
+      window.document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+    } catch (error: any) { setError(error.message || 'Preview failed'); }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -123,6 +137,8 @@ export default function EditDocumentPage() {
       return;
     }
 
+    if (!newFile && formData.status === 'published' && document?.status !== 'published'
+      && !window.confirm('Publish this document? Confirm that its content and access level have been reviewed.')) return;
     setSaving(true);
     setError('');
     setSuccess('');
@@ -167,7 +183,7 @@ export default function EditDocumentPage() {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify(formData),
+            body: JSON.stringify({ ...formData, category_id: formData.category_id || null, expires_at: formData.expires_at ? new Date(`${formData.expires_at}T23:59:59.999Z`).toISOString() : null }),
           }
         );
 
@@ -232,6 +248,7 @@ export default function EditDocumentPage() {
         {/* File Section */}
         <div className="mb-6 p-4 bg-gray-50 rounded-lg">
           <h3 className="font-semibold text-gray-900 mb-3">Document File</h3>
+          <button type="button" onClick={previewFile} className="text-blue-700 underline mb-4">Download private preview</button>
 
           {!fileRemoved ? (
             // Show current file with remove button
@@ -381,10 +398,15 @@ export default function EditDocumentPage() {
               </option>
             </select>
             <p className="text-xs text-gray-500 mt-1">
-              Note: All restricted documents require NDA acceptance before download.
+              Note: Restricted documents require administrator approval. NDA acceptance is checked when enabled below.
             </p>
           </div>
 
+          <label className="flex items-center gap-3 text-sm text-gray-700">
+            <input type="checkbox" checked={formData.requires_nda} onChange={e => setFormData({ ...formData, requires_nda: e.target.checked })} />
+            Require acceptance of the approved NDA before download
+          </label>
+          <p className="text-sm text-gray-600">Replacing a file saves a new draft. Review it before publishing again.</p>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Status
