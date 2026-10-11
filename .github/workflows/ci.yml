@@ -57,6 +57,10 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: GitHub credential setup tests
+        working-directory: .
+        run: python3 -m unittest discover -s scripts/tests -v
+
   frontend:
     name: Frontend Build & Lint
     runs-on: ubuntu-latest

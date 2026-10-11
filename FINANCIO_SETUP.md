@@ -106,6 +106,60 @@ Required configuration:
   to collect evidence; the portal/document features remain usable without it.
   No administration, write, or organization-wide permission.
 
+### Configure the dedicated GitHub credential
+
+The Codex GitHub connection is for this task. Its credential is not exported or
+reused on the server. GitHub does not offer an API for this integration to issue
+a permanent personal access token on the user's behalf.
+
+[Create a prefilled fine-grained token](https://github.com/settings/personal-access-tokens/new?name=Financio%20Trust%20Center%20-%20evidence&description=Read-only%20release%20evidence&target_name=thepsychonaut421&expires_in=30&contents=read&statuses=read).
+Select **Only select repositories → Financio-Flow-ERP**, confirm **Contents:
+read-only** and **Commit statuses: read-only**, and retain the 30-day expiration.
+Metadata read access is automatic. Store the token in the dedicated server secret
+manager; do not paste it into chat or a shell command.
+
+On the dedicated Trust Center VM, from this checkout, run:
+
+```sh
+# A protected file explicitly supplied by the server secret manager.
+python3 scripts/configure-github-credential.py --token-file /run/secrets/trust-center-github-token
+```
+
+Alternatively omit `--token-file` and enter the credential at the hidden terminal
+prompt. A dedicated `TRUST_CENTER_GITHUB_TOKEN` environment secret binding is also
+supported with `--from-env`; the helper never falls back to `GH_TOKEN` or the
+Codex task connection. The helper first verifies `main` and that SHA's combined commit status
+through read-only GitHub requests. On success it atomically updates only the
+two Trust Center GitHub fields in ignored `.env.financio.local`, mode0600,
+preserving other settings. It refuses tracked files, symlinks, destinations in
+the ERP checkout, task credentials and classic tokens. Validation failures leave
+the env file unchanged. The helper confirms read access, not that an incorrectly
+configured token has no additional write permissions; inspect those in GitHub.
+
+After the VM has its other required settings and an installed backend image,
+reload only the backend so the credential becomes effective:
+
+```sh
+docker compose --env-file .env.financio.local -f docker-compose.financio.yml up -d --no-deps backend
+```
+
+Rotate with the same helper before expiration, validate collection, then revoke
+the previous token through GitHub settings. This read-only token is for evidence
+collection; it does not grant the Codex integration permission to create forks.
+If that integration continues to return403, create the dedicated
+`financio-trust-center` fork through [GitHub's fork page](https://github.com/kutcode/trust-center/fork).
+The existing app installation selects all repositories, so the new fork should
+become available to it; verify access before pushing the reviewed branch.
+
+### Host placement
+
+Use a dedicated Proxmox VM named `financio-trust-center`, with its own operator
+account, Docker installation, backups and secret bindings. A starting allocation
+is 2 vCPU, 4GiB RAM and 32GiB storage, adjusted for document volume. Choose an
+available VM ID during provisioning. VM140 (`financio-ci`) remains the CI host.
+The selected VM/node/access path must be established before any remote changes;
+this repository does not assert that the VM has been provisioned.
+
 For a **fresh native Supabase project**, use the reviewed initializer instead of
 running every upstream SQL file:
 
