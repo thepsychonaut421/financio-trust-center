@@ -24,8 +24,9 @@ export function sourceRepository(): string {
 function safeStatusUrl(value: string | null | undefined): string | null {
   try {
     const url = new URL(value || '');
-    return url.protocol === 'https:' && ['github.com', 'ci.financioflow.com'].includes(url.hostname) && !url.username && !url.password
-      ? url.href : null;
+    if (url.protocol !== 'https:' || !['github.com', 'ci.financioflow.com'].includes(url.hostname) || url.username || url.password || url.port) return null;
+    url.search = ''; url.hash = '';
+    return url.href;
   } catch { return null; }
 }
 function changeContext(sha: string, payload: unknown) {
@@ -36,6 +37,7 @@ function changeContext(sha: string, payload: unknown) {
     const path = file.filename.toLowerCase();
     if (/(^|\/)(package(?:-lock)?\.json|yarn\.lock|pnpm-lock\.yaml|go\.(mod|sum)|requirements[^/]*\.txt|poetry\.lock|cargo\.(toml|lock))$/.test(path)) areas.add('dependency maintenance');
     else if (/(^|\/)(\.github\/workflows|\.woodpecker|__tests__|tests?)(\/|\.)|\.(test|spec)\.[^/]+$/.test(path)) areas.add('automated validation');
+    else if (/(^|\/)(security|auth|authorization|policies|cerbos)(\/|\.)|(?:^|[-_/])rls(?:[-_/.]|$)/.test(path)) areas.add('access control and security configuration');
     else if (/(^|\/)(docs?\/|readme[^/]*$)|\.(md|rst)$/.test(path)) areas.add('documentation');
     else if (/(^|\/)(dockerfile[^/]*|(?:docker-)?compose[^/]*\.ya?ml)$/.test(path)) areas.add('deployment configuration');
     else areas.add('application files');
@@ -50,12 +52,18 @@ export function buildEvidence(repository: string, sha: string, payload: unknown,
   const parsed = statusSchema.safeParse(payload);
   const matching = parsed.success && parsed.data.sha === sha;
   const gate = matching ? parsed.data.statuses.find(s => s.context === 'ci/woodpecker/push/required-release-gate') : undefined;
+  const observedSecurityChecks = matching ? parsed.data.statuses
+    .filter(s => /(?:security|dependency|sast|trivy|codeql|aikido|npm[-_/ .]audit)/i.test(s.context))
+    .map(s => ({ context: s.context, state: s.state, source: safeStatusUrl(s.target_url) }))
+    .sort((a, b) => a.context < b.context ? -1 : a.context > b.context ? 1 : 0).slice(0, 50) : [];
   return {
     schemaVersion: 1, repository, sha, collectedAt,
     merged: { state: 'confirmed', source: `https://github.com/${repository}/commit/${sha}` },
     ci: { state: gate?.state || 'unknown', source: safeStatusUrl(gate?.target_url),
       provenance: 'GitHub commit status mirror; executed Woodpecker config not independently verified' },
     change: changeContext(sha, commitDetails),
+    securityChecks: { source: 'GitHub commit status mirror', observations: observedSecurityChecks,
+      scope: 'Up to 50 security-labelled job statuses; no security findings, coverage, deployment or remediation claim' },
     deploy: { state: 'not_configured' }, securityCloud: { state: 'not_configured' }, ai: { state: 'not_configured' },
   };
 }
@@ -68,8 +76,8 @@ export function draftFromEvidence(evidence: ReturnType<typeof buildEvidence>) {
   const areas = evidence.change.areas.length ? ` Observed changed files cover ${evidence.change.areas.join(', ')}.` : '';
   return {
     title: 'Financio Flow engineering update',
-    content: `An engineering change has been integrated into Financio Flow.${areas} ${checks}\n\nDeployment and remediation verification have not been confirmed. This update does not announce a production rollout or the closure of security findings.`,
-    evidence: { ...evidence, generator: 'evidence-template-v1' },
+    content: `An engineering change has been integrated into Financio Flow.${areas} ${checks}${evidence.securityChecks.observations.length ? ' Security-related CI job results are available as private review context; they do not establish the closure of findings.' : ''}\n\nDeployment and remediation verification have not been confirmed. This update does not announce a production rollout or the closure of security findings.`,
+    evidence: { ...evidence, generator: 'evidence-template-v2' },
   };
 }
 

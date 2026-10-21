@@ -1,6 +1,7 @@
 import { apiRequest } from '@/lib/api';
 import { TrustCenterSettings, Document, DocumentCategory } from '@/types';
 import HomePageClient from '@/components/HomePageClient';
+import { getErpReleaseObservation } from '@/lib/erp-release';
 
 async function getSettings(): Promise<TrustCenterSettings> {
   try {
@@ -58,7 +59,7 @@ async function getSecurityUpdates() {
 }
 
 export default async function Home() {
-  const [settings, documents, categories, certifications, controlCategories, securityUpdates, controls] = await Promise.all([
+  const [settings, documents, categories, certifications, controlCategories, securityUpdates, controls, erpRelease] = await Promise.all([
     getSettings(),
     getDocuments(),
     getCategories(),
@@ -66,6 +67,7 @@ export default async function Home() {
     getControlCategories(),
     getSecurityUpdates(),
     apiRequest<any[]>('/api/controls').catch(() => []),
+    getErpReleaseObservation(),
   ]);
 
   const publishedDocs = documents.filter(doc => doc.status === 'published');
@@ -79,6 +81,7 @@ export default async function Home() {
       controlCategories={controlCategories}
       securityUpdates={securityUpdates}
       controls={controls}
+      erpRelease={erpRelease}
     />
   );
 }

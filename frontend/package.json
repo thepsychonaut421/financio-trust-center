@@ -9,7 +9,9 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:changelog-ui": "node scripts/changelog-ui-smoke.cjs",
-    "test:access-ui": "node scripts/access-ui-smoke.cjs"
+    "test:access-ui": "node scripts/access-ui-smoke.cjs",
+    "test:public-brand-ui": "node scripts/public-brand-ui-smoke.cjs",
+    "test:erp-status": "node scripts/erp-status-smoke.cjs"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",

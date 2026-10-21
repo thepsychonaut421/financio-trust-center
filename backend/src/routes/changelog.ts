@@ -18,7 +18,8 @@ function fail(res: Response, error: unknown) {
 }
 router.get('/config', (_req, res) => {
   try {
-    res.json({ repository: sourceRepository(), github: process.env.TRUST_CENTER_GITHUB_TOKEN ? 'configured' : 'not_configured', ai: 'not_configured', deploy: 'not_configured', securityCloud: 'not_configured' });
+    res.json({ repository: sourceRepository(), github: process.env.TRUST_CENTER_GITHUB_TOKEN ? 'configured' : 'not_configured', ai: 'not_configured', deploy: 'not_configured', securityCloud: 'not_configured', securityChecks: 'github_statuses_only',
+      automation: { enabled: process.env.TRUST_CENTER_AUTOMATION_ENABLED === 'true', actorConfigured: !!process.env.TRUST_CENTER_AUTOMATION_ACTOR_ID && !!process.env.TRUST_CENTER_AUTOMATION_ACTOR_EMAIL, intervalSeconds: 900 } });
   } catch (error) { fail(res, error); }
 });
 router.get('/', async (_req, res) => {

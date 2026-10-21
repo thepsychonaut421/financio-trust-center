@@ -62,3 +62,20 @@ describe('Changelog evidence boundaries', () => {
     expect(request.mock.calls[0][1].redirect).toBe('error');
   });
 });
+
+describe('Source-attributed security CI observations', () => {
+  test('only matching SHA security-labelled jobs become bounded private observations', () => {
+    const evidence = buildEvidence('owner/repo', sha, { sha, statuses: [
+      { context: 'security/trivy', state: 'success', target_url: 'https://ci.financioflow.com/repos/1/pipeline/1?token=private#secret' },
+      { context: 'accounting/audit', state: 'success', target_url: 'https://ci.financioflow.com/financial' },
+      { context: 'codeql', state: 'failure', target_url: 'https://untrusted.example/private' },
+    ] }, '');
+    expect(evidence.securityChecks.observations).toEqual([
+      { context: 'codeql', state: 'failure', source: null },
+      { context: 'security/trivy', state: 'success', source: 'https://ci.financioflow.com/repos/1/pipeline/1' },
+    ]);
+    expect(draftFromEvidence(evidence).content).toContain('do not establish the closure of findings');
+    expect(draftFromEvidence(evidence).content).not.toContain('token=private');
+    expect(buildEvidence('owner/repo', 'b'.repeat(40), { sha, statuses: [{ context: 'security', state: 'success' }] }, '').securityChecks.observations).toEqual([]);
+  });
+});

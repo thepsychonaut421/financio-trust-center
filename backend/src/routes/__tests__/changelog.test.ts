@@ -19,6 +19,12 @@ describe('Draft review routes', () => {
     expect((await request(app).get('/api/changelog' + path)).status).toBe(401);
     expect(supabase.from).not.toHaveBeenCalled();
   });
+  test('private configuration distinguishes scheduled drafts from unavailable finding sources', async () => {
+    const response = await request(app).get('/api/changelog/config').set('Authorization', auth);
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ securityCloud: 'not_configured', securityChecks: 'github_statuses_only', automation: { intervalSeconds: 900 } });
+    expect(JSON.stringify(response.body)).not.toContain('test-admin');
+  });
   test('cannot generate anonymously or list drafts through public updates', async () => {
     expect((await request(app).post('/api/changelog/generate').send({})).status).toBe(401);
     expect((await request(app).get('/api/security-updates?include_unpublished=true')).status).toBe(401);

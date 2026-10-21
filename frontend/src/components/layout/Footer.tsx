@@ -8,22 +8,34 @@ export default async function Footer() {
   const footerLinks = settings?.footer_links || [];
 
   return (
-    <footer
-      className="mt-auto"
-      style={{ backgroundColor: settings?.primary_color ? `${settings.primary_color}10` : '#f9fafb' }}
-    >
-      <div className="container mx-auto px-4 py-8">
+    <footer className="financio-footer mt-auto border-t">
+      <div className="container mx-auto px-4 py-10">
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+          <div>
+            <p className="font-semibold text-base">{settings?.company_name || 'Financio Flow'} <span className="financio-mint">Trust Center</span></p>
+            <p className="financio-muted mt-3 text-sm leading-relaxed max-w-sm">Published security information, document access and approved updates for Financio Flow.</p>
+          </div>
+          <nav aria-label="Financio Flow links" className="flex flex-col items-start gap-3 text-sm">
+            <span className="financio-label">Financio Flow</span>
+            <a href="https://app.financioflow.com/login">Open ERP ↗</a>
+            <a href="https://financioflow.com">Product website ↗</a>
+            <a href="https://financioflow.com/security">ERP security information ↗</a>
+          </nav>
+          <nav aria-label="Trust Center source" className="flex flex-col items-start gap-3 text-sm">
+            <span className="financio-label">About this portal</span>
+            <a href="https://github.com/thepsychonaut421/financio-trust-center">Portal source ↗</a>
+            <a href="https://github.com/kutcode/trust-center">Original open-source project ↗</a>
+            <Link href="/security-updates">Published updates</Link>
+          </nav>
+        </div>
         {/* Footer Links */}
         {footerLinks.length > 0 && (
-          <div className="flex flex-wrap justify-center gap-6 mb-6">
+          <div className="flex flex-wrap gap-6 mb-6">
             {footerLinks.map((link, index) => (
               <Link
                 key={index}
                 href={link.url}
                 className="text-gray-600 hover:text-gray-900 transition-colors"
-                style={{
-                  color: settings?.secondary_color || undefined
-                }}
               >
                 {link.label}
               </Link>
@@ -32,7 +44,7 @@ export default async function Footer() {
         )}
 
         {/* Footer Text */}
-        <p className="text-center text-gray-600 text-sm">
+        <p className="financio-muted border-t border-gray-200 pt-6 text-sm">
           {footerText}
         </p>
 

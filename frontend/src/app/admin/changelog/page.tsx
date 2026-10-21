@@ -24,6 +24,7 @@ interface ChangelogConfig {
     ai: 'not_configured';
     deploy: 'not_configured';
     securityCloud: 'not_configured';
+    automation?: { enabled: boolean; actorConfigured: boolean; intervalSeconds: number };
 }
 
 interface HistoryEvent {
@@ -262,6 +263,7 @@ export default function ChangelogReviewPage() {
             <section className="rounded-lg border border-gray-200 bg-white p-5 space-y-4" aria-labelledby="generate-heading">
                 <h2 id="generate-heading" className="font-semibold text-gray-900">Prepare a draft</h2>
                 <p className="text-sm text-gray-600">Repository: <span className="font-mono">{config?.repository || 'Not configured'}</span></p>
+                <p className="text-sm text-gray-600">Scheduled evidence collection: {config?.automation?.enabled && config.automation.actorConfigured ? 'enabled for private drafts' : 'not enabled'}. Automatic drafts still require your review before publication.</p>
                 <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
                     AI drafting is not configured. Drafts currently use an evidence-based template from GitHub. Deploy and Security Cloud integrations are not configured; a green CI result does not establish a deployment or a verified remediation.
                 </div>

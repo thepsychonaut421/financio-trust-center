@@ -14,6 +14,7 @@ interface HomePageClientProps {
     controlCategories: any[];
     securityUpdates: any[];
     controls: any[];
+    erpRelease?: { runtime?: 'nest'; releaseSha: string | null; observedAt: string } | null;
 }
 
 // File type badge helper
@@ -113,6 +114,7 @@ export default function HomePageClient({
     controlCategories,
     securityUpdates,
     controls,
+    erpRelease = null,
 }: HomePageClientProps) {
     const getUpdatePreview = (content: unknown, format?: 'plain_text' | 'html') => {
         if (typeof content !== 'string') return 'No update details provided.';
@@ -155,9 +157,17 @@ export default function HomePageClient({
             default: return true;
         }
     });
+    const publicInformation = [
+        { path: '/security', title: 'Security', description: 'Account protection, organization isolation, recovery and responsible disclosure.' },
+        { path: '/privacy', title: 'Privacy', description: 'How personal information is handled and how to exercise your privacy rights.' },
+        { path: '/terms', title: 'Terms of Service', description: 'The terms governing use of the ERP service.' },
+        { path: '/subprocessors', title: 'Service providers', description: 'The services involved in operating Financio Flow.' },
+        { path: '/impressum', title: 'Impressum', description: 'Provider identification and legal contact information.' },
+        { path: '/contact', title: 'Contact', description: 'Ask a question or request further information.' },
+    ];
 
     return (
-        <div className="min-h-screen bg-white">
+        <div className="financio-home min-h-screen bg-white">
             {/* Hero Section - Animated Gradient Mesh */}
             <section className="hero-gradient text-white relative" id="section-overview">
                 <div className="container mx-auto px-4 py-12 sm:py-20 lg:py-28 relative z-10">
@@ -165,11 +175,11 @@ export default function HomePageClient({
                         {/* Left Column */}
                         <div>
                             {/* Live status badge */}
-                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-6">
-                                <span className="text-sm font-medium text-gray-200">Financio Flow Trust Center</span>
+                            <div className="financio-eyebrow mb-6">
+                                <span>Security &amp; transparency</span>
                             </div>
 
-                            <h1 className="text-3xl sm:text-4xl lg:text-6xl font-extrabold mb-4 sm:mb-6 leading-tight tracking-tight">
+                            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold mb-4 sm:mb-6 leading-tight tracking-tight">
                                 {settings.hero_title || 'Financio Flow Trust Center'}
                             </h1>
                             <p className="text-base sm:text-lg lg:text-xl text-gray-300 mb-6 sm:mb-8 leading-relaxed max-w-lg">
@@ -178,8 +188,7 @@ export default function HomePageClient({
                             <div className="flex flex-wrap gap-4">
                                 <Link
                                     href="/documents"
-                                    className="inline-flex items-center px-6 py-3 bg-white rounded-xl font-semibold hover:bg-gray-100 transition-all duration-200 hover:shadow-lg hover:shadow-white/10 hover:-translate-y-0.5"
-                                    style={{ color: settings.primary_color || '#111827' }}
+                                    className="financio-primary-link inline-flex items-center px-5 py-3 rounded-md font-semibold transition-colors"
                                 >
                                     Browse Documents
                                     <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -187,15 +196,28 @@ export default function HomePageClient({
                                     </svg>
                                 </Link>
                                 <Link
-                                    href="/certifications"
-                                    className="inline-flex items-center px-6 py-3 border border-white/30 text-white rounded-xl font-semibold hover:bg-white/10 transition-all duration-200 backdrop-blur-sm"
+                                    href="/security-updates"
+                                    className="inline-flex items-center px-5 py-3 border border-white/30 text-white rounded-md font-medium hover:bg-white/10 transition-colors"
                                 >
-                                    View Certifications
+                                    Security updates
                                 </Link>
                             </div>
                         </div>
 
-                        {/* Right Column - Security Updates */}
+                        {securityUpdates.length === 0 && (
+                            <aside className="financio-evidence-panel rounded-xl p-6 sm:p-8">
+                                <span className="financio-label">Information you can review</span>
+                                <h2 className="mt-4 text-xl font-semibold">Explore the published information.</h2>
+                                <p className="financio-muted mt-3 text-sm leading-relaxed">Browse available documents or request access to restricted material. Security updates appear here after review and publication.</p>
+                                <div className="mt-6 flex flex-col divide-y divide-white/10">
+                                    <Link href="/documents" className="flex justify-between py-4 text-sm font-medium">Documents &amp; access <span aria-hidden="true">→</span></Link>
+                                    <Link href="/security-updates" className="flex justify-between py-4 text-sm font-medium">Published updates <span aria-hidden="true">→</span></Link>
+                                    <a href="https://app.financioflow.com/login" className="flex justify-between py-4 text-sm font-medium">Return to Financio Flow ERP <span aria-hidden="true">↗</span></a>
+                                </div>
+                            </aside>
+                        )}
+
+                        {/* Right Column - Published Security Updates */}
                         {securityUpdates.length > 0 && (
                             <div className="glass-card-dark p-6 rounded-2xl">
                                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -252,12 +274,42 @@ export default function HomePageClient({
             <CertBadgeStrip certifications={certifications} />
 
             {/* Animated Stats */}
-            <StatsCounter stats={statsData} />
+            {statsData.some(stat => stat.value > 0) && <StatsCounter stats={statsData} />}
 
             {/* Section Navigation */}
             <div className="mt-8">
                 <SectionNav sections={activeSections} />
             </div>
+
+            <section className="py-12 sm:py-16" aria-labelledby="service-information-heading">
+                <div className="container mx-auto px-4">
+                    <div className="grid gap-8 lg:grid-cols-[1fr_360px] items-start mb-8">
+                        <div>
+                            <span className="financio-label">Financio Flow service information</span>
+                            <h2 id="service-information-heading" className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight">Security, privacy and legal information.</h2>
+                            <p className="financio-muted mt-4 max-w-xl text-sm leading-relaxed">These links open the existing ERP information pages. Each document describes its own scope and limitations; portal documents and restricted access remain separate.</p>
+                        </div>
+                        <aside className="financio-evidence-panel rounded-xl p-5" aria-label="ERP endpoint observation">
+                            <p className="financio-label">ERP endpoint observation</p>
+                            {erpRelease ? <>
+                                <p className="mt-3 text-sm font-medium">Public application endpoint responded.</p>
+                                {erpRelease.releaseSha
+                                    ? <code className="block mt-3 text-xs break-all leading-relaxed">{erpRelease.releaseSha}</code>
+                                    : <p className="financio-muted mt-3 text-xs leading-relaxed">The production commit is not published by this endpoint.</p>}
+                                <time dateTime={erpRelease.observedAt} className="financio-muted block mt-2 text-xs">{new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Berlin' }).format(new Date(erpRelease.observedAt))} (Europe/Berlin)</time>
+                            </> : <p className="financio-muted mt-3 text-sm">The public ERP endpoint could not be verified for this page view.</p>}
+                            <p className="financio-muted mt-3 text-xs leading-relaxed">Observed from the public ERP endpoint. Repository main, CI results and independent security assurance are separate evidence.</p>
+                            <a href="https://app.financioflow.com/api/server-info" className="mt-3 inline-flex text-xs underline underline-offset-4">View observation source ↗</a>
+                        </aside>
+                    </div>
+                    <nav aria-label="ERP security and legal information" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {publicInformation.map(item => <a key={item.path} href={`https://financioflow.com${item.path}`} className="glass-card p-5">
+                            <span className="flex items-center justify-between font-semibold text-sm">{item.title}<span aria-hidden="true">↗</span></span>
+                            <p className="financio-muted mt-3 text-sm leading-relaxed">{item.description}</p>
+                        </a>)}
+                    </nav>
+                </div>
+            </section>
 
             {/* Document Categories Section */}
             {categories.length > 0 && (
@@ -552,7 +604,7 @@ export default function HomePageClient({
                     <div className="flex flex-wrap justify-center gap-4">
                         <Link
                             href="/documents"
-                            className="inline-flex items-center px-6 py-3 bg-white text-gray-900 rounded-xl font-semibold hover:bg-gray-100 transition-all duration-200 hover:shadow-lg hover:shadow-white/10 hover:-translate-y-0.5"
+                            className="financio-primary-link inline-flex items-center px-5 py-3 rounded-md font-semibold transition-colors"
                         >
                             Browse Documents
                             <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -560,10 +612,10 @@ export default function HomePageClient({
                             </svg>
                         </Link>
                         <Link
-                            href="/certifications"
-                            className="inline-flex items-center px-6 py-3 border border-white/30 text-white rounded-xl font-semibold hover:bg-white/10 transition-all duration-200 backdrop-blur-sm"
+                            href="https://app.financioflow.com/login"
+                            className="inline-flex items-center px-5 py-3 border border-white/30 text-white rounded-md font-medium hover:bg-white/10 transition-colors"
                         >
-                            View Certifications
+                            Open Financio Flow ERP ↗
                         </Link>
                     </div>
                 </div>

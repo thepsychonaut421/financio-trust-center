@@ -41,10 +41,11 @@ export default async function SecurityUpdatesPage() {
               { label: 'Security Updates' },
             ]}
           />
-          <h1 className="text-5xl font-bold text-gray-900 mb-4">Security Updates</h1>
+          <h1 className="text-3xl sm:text-5xl font-semibold tracking-tight text-gray-900 mb-4">Security Updates</h1>
           <p className="text-xl text-gray-600 max-w-2xl">
             Stay informed about the latest security advisories and updates.
           </p>
+          <p className="financio-muted mt-5 max-w-2xl text-sm leading-relaxed">Only reviewed, published updates appear here. Each entry describes its stated scope and evidence; publication does not imply an independent audit or certification.</p>
         </div>
       </div>
 

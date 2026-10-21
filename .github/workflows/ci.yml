@@ -128,3 +128,9 @@ jobs:
 
       - name: Recovery and document access UI smoke
         run: npm run test:access-ui
+
+      - name: Public ERP observation contract
+        run: npm run test:erp-status
+
+      - name: Public Trust Center brand and empty-state UI
+        run: npm run test:public-brand-ui
