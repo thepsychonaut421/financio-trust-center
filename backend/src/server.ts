@@ -71,7 +71,8 @@ app.use(demoModeMiddleware);
 
 // Request logging
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  const loggedPath = req.path.replace(/^(\/api\/access\/)[^/]+/, '$1[redacted]');
+  console.log(`[${new Date().toISOString()}] ${req.method} ${loggedPath}`);
   next();
 });
 
@@ -166,7 +167,7 @@ import accessRoutes from './routes/access';
 import controlsRoutes from './routes/controls';
 import frameworksRoutes from './routes/frameworks';
 import adminRoutes from './routes/admin';
-import salesforceRoutes from './routes/salesforce';
+import changelogRoutes from './routes/changelog';
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -182,7 +183,7 @@ app.use('/api/access', accessRoutes);
 app.use('/api', controlsRoutes);
 app.use('/api', frameworksRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/admin/integrations/salesforce', salesforceRoutes);
+app.use('/api/changelog', changelogRoutes);
 
 
 // Error handling middleware

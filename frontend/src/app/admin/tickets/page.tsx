@@ -426,8 +426,11 @@ export default function TicketsAdminPage() {
             {totalPages > 1 && (
               <div className="border-t border-gray-200 px-4 py-3">
                 <Pagination
-                  currentPage={currentPage}
+                  page={currentPage}
                   totalPages={totalPages}
+                  totalItems={tickets.length}
+                  startIndex={(currentPage - 1) * ITEMS_PER_PAGE + 1}
+                  endIndex={Math.min(currentPage * ITEMS_PER_PAGE, tickets.length)}
                   onPageChange={setCurrentPage}
                 />
               </div>

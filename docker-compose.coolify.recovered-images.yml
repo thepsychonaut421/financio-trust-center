@@ -1,0 +1,122 @@
+# Initial migration with recovered production images; no application build.
+services:
+  backend:
+    cap_drop:
+    - ALL
+    cpus: 0.5
+    environment:
+      ALLOW_ADMIN_SIGNUP: 'false'
+      BACKEND_PUBLIC_URL: ${TRUST_CENTER_PUBLIC_API_URL:?Trust Center public API URL
+        required}
+      DEMO_MODE: 'false'
+      DOCUMENT_UPLOADS_ENABLED: ${DOCUMENT_UPLOADS_ENABLED:-true}
+      DOCUMENT_UPLOADS_PER_MINUTE: '20'
+      DOCUMENT_UPLOAD_ADMIN_EMAIL_ALLOWLIST: ${DOCUMENT_UPLOAD_ADMIN_EMAIL_ALLOWLIST:-}
+      DOCUMENT_UPLOAD_MAX_MB: '25'
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-resend}
+      EMAIL_REPLY_TO: ${EMAIL_REPLY_TO:-}
+      ENABLE_TEST_EMAIL: 'false'
+      FRONTEND_URL: ${TRUST_CENTER_PUBLIC_URL:?Trust Center HTTPS URL required}
+      NODE_ENV: production
+      PORT: 4000
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SMTP_FROM: ${SMTP_FROM:?Verified Trust Center sender required}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?Dedicated Trust Center public anon key
+        required}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:?Dedicated Trust Center service
+        key required}
+      SUPABASE_URL: ${SUPABASE_URL:?Dedicated Trust Center Supabase URL required}
+      TRUST_CENTER_GITHUB_TOKEN: ${TRUST_CENTER_GITHUB_TOKEN:-}
+      TRUST_CENTER_SOURCE_REPOSITORY: ${TRUST_CENTER_SOURCE_REPOSITORY:-thepsychonaut421/Financio-Flow-ERP}
+      UPLOADS_DIR: /app/uploads
+    expose:
+    - '4000'
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 30s
+      test:
+      - CMD
+      - node
+      - -e
+      - fetch('http://127.0.0.1:4000/api/documents',{signal:AbortSignal.timeout(5000)}).then(async
+        r=>{if(!r.ok||!Array.isArray(await r.json()))process.exit(1)}).catch(()=>process.exit(1))
+      timeout: 8s
+    mem_limit: 384m
+    pids_limit: 128
+    restart: unless-stopped
+    security_opt:
+    - no-new-privileges:true
+    volumes:
+    - trust-center-uploads:/app/uploads
+    image: ${TRUST_CENTER_BACKEND_IMAGE:?Use the recovered production image digest}
+  frontend:
+    cap_drop:
+    - ALL
+    cpus: 0.75
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      API_URL: http://backend:4000
+      NEXT_PUBLIC_API_URL: ${TRUST_CENTER_PUBLIC_API_URL}
+      NEXT_PUBLIC_DEMO_MODE: 'false'
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NODE_ENV: production
+      TRUST_CENTER_PUBLIC_URL: ${TRUST_CENTER_PUBLIC_URL:?Trust Center HTTPS URL required}
+    expose:
+    - '3000'
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 30s
+      test:
+      - CMD
+      - node
+      - -e
+      - fetch('http://127.0.0.1:3000/',{signal:AbortSignal.timeout(5000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      timeout: 8s
+    mem_limit: 512m
+    pids_limit: 128
+    restart: unless-stopped
+    security_opt:
+    - no-new-privileges:true
+    image: ${TRUST_CENTER_FRONTEND_IMAGE:?Use the recovered production image digest}
+  gateway:
+    cap_drop:
+    - ALL
+    cpus: 0.25
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    expose:
+    - '8080'
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 15s
+      test:
+      - CMD-SHELL
+      - wget -q -O /dev/null http://127.0.0.1:8080/ && wget -q -O /dev/null http://127.0.0.1:8080/api/documents
+      timeout: 8s
+    image: ${TRUST_CENTER_GATEWAY_IMAGE:?Pin the approved nginxinc/nginx-unprivileged
+      image digest}
+    mem_limit: 64m
+    pids_limit: 64
+    restart: unless-stopped
+    security_opt:
+    - no-new-privileges:true
+    volumes:
+    - ./deploy/coolify/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+volumes:
+  trust-center-uploads:
+    external: true
+    name: ${TRUST_CENTER_UPLOADS_VOLUME:?Use the restored and verified uploads volume}

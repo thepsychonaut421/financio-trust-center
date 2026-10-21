@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -18,6 +19,7 @@ interface SecurityUpdate {
     severity: 'low' | 'medium' | 'high' | 'critical' | null;
     published_at: string | null;
     created_at: string;
+    source_draft_id: string | null;
 }
 
 const severityOptions = [
@@ -93,6 +95,7 @@ export default function SecurityUpdatesAdminPage() {
                     severity: ['low', 'medium', 'high', 'critical'].includes(row?.severity) ? row.severity : null,
                     published_at: typeof row?.published_at === 'string' ? row.published_at : null,
                     created_at: typeof row?.created_at === 'string' ? row.created_at : new Date().toISOString(),
+                    source_draft_id: typeof row?.source_draft_id === 'string' ? row.source_draft_id : null,
                 }))
             );
         } catch (error) {
@@ -115,6 +118,7 @@ export default function SecurityUpdatesAdminPage() {
     };
 
     const openEditModal = (update: SecurityUpdate) => {
+        if (update.source_draft_id) return;
         setEditingUpdate(update);
         setForm({
             title: update.title || '',
@@ -163,7 +167,7 @@ export default function SecurityUpdatesAdminPage() {
     };
 
     const handleDelete = async () => {
-        if (!deleteConfirm || !token) return;
+        if (!deleteConfirm || !token || deleteConfirm.source_draft_id) return;
 
         setSaving(true);
         try {
@@ -181,7 +185,7 @@ export default function SecurityUpdatesAdminPage() {
     };
 
     const togglePublish = async (update: SecurityUpdate) => {
-        if (!token) return;
+        if (!token || update.source_draft_id) return;
 
         try {
             const newPublishedAt = update.published_at ? null : new Date().toISOString();
@@ -219,6 +223,10 @@ export default function SecurityUpdatesAdminPage() {
                         Manage security advisories and announcements
                     </p>
                 </div>
+                <div className="flex items-center gap-3">
+                <Link href="/admin/changelog" className="px-4 py-2 border border-blue-200 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-50">
+                    Review Assisted Drafts
+                </Link>
                 <button
                     onClick={openAddModal}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
@@ -228,6 +236,7 @@ export default function SecurityUpdatesAdminPage() {
                     </svg>
                     Add Update
                 </button>
+                </div>
             </div>
 
             {/* Updates Table */}
@@ -306,6 +315,8 @@ export default function SecurityUpdatesAdminPage() {
                                     <td className="px-6 py-4">
                                         <button
                                             onClick={() => togglePublish(update)}
+                                            disabled={!!update.source_draft_id}
+                                            title={update.source_draft_id ? 'Approved changelog revisions are immutable' : 'Change publication status'}
                                             className={`px-2.5 py-1 text-xs font-medium rounded-full ${update.published_at
                                                 ? 'bg-green-100 text-green-700'
                                                 : 'bg-gray-100 text-gray-600'
@@ -323,6 +334,11 @@ export default function SecurityUpdatesAdminPage() {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-right">
+                                        {update.source_draft_id ? (
+                                            <Link href={`/admin/changelog?draft=${encodeURIComponent(update.source_draft_id)}`} className="text-sm text-blue-700 underline" title="View approval history; create a new draft for corrections">
+                                                Approval history
+                                            </Link>
+                                        ) : (
                                         <div className="flex items-center justify-end gap-2">
                                             <button
                                                 onClick={() => openEditModal(update)}
@@ -343,6 +359,7 @@ export default function SecurityUpdatesAdminPage() {
                                                 </svg>
                                             </button>
                                         </div>
+                                        )}
                                     </td>
                                 </tr>
                             ))}

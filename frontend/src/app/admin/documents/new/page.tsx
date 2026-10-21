@@ -118,7 +118,7 @@ export default function UploadDocumentPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-8 gap-4">
-        <h1 className="text-4xl font-bold text-gray-900">Upload New Document</h1>
+        <h1 className="text-4xl font-bold text-gray-900">Prepare New Document</h1>
         <button
           type="button"
           onClick={() => router.push('/admin/documents')}
@@ -137,6 +137,7 @@ export default function UploadDocumentPage() {
         </div>
       )}
 
+      <p className="mb-6 text-gray-600">The document will be saved as a private draft. Review it in Documents before choosing Published.</p>
       <div className="bg-white rounded-lg shadow p-6">
         <form onSubmit={handleSubmit} className="space-y-6">
           <FormField
@@ -207,7 +208,7 @@ export default function UploadDocumentPage() {
             label="Access Level"
             htmlFor="access_level"
             required
-            helpText="Note: All restricted documents require NDA acceptance before download."
+            helpText="Note: Restricted documents require administrator approval. Enable the NDA requirement below when applicable."
           >
             <select
               id="access_level"
@@ -220,6 +221,11 @@ export default function UploadDocumentPage() {
               <option value="restricted">Restricted (requires approval)</option>
             </select>
           </FormField>
+
+          <label className="flex items-center gap-3 text-sm text-gray-700">
+            <input type="checkbox" checked={formData.requires_nda} onChange={e => setFormData({ ...formData, requires_nda: e.target.checked })} />
+            Require acceptance of the approved NDA before download
+          </label>
 
           <FormField
             label="Expiry Date"
@@ -241,7 +247,7 @@ export default function UploadDocumentPage() {
               disabled={loading || !file}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400"
             >
-              {loading ? 'Uploading...' : 'Upload Document'}
+              {loading ? 'Saving...' : 'Save Document Draft'}
             </button>
             <Link
               href="/admin/documents"

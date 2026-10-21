@@ -9,6 +9,7 @@ export interface Document {
   file_size: number;
   file_type: string;
   version?: string;
+  version_number?: number;
   status: 'draft' | 'published' | 'archived';
   created_at: string;
   updated_at: string;
@@ -74,6 +75,7 @@ export interface SecurityUpdate {
   id: string;
   title: string;
   content: string;
+  content_format?: 'plain_text' | 'html';
   severity?: 'low' | 'medium' | 'high' | 'critical';
   published_at?: string;
   created_at: string;

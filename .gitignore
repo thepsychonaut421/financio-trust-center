@@ -19,6 +19,12 @@ out/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*
+!.env.example
+!.env.*.example
+.github-credential-*
+__pycache__/
+*.py[cod]
 
 # IDE
 .vscode/
@@ -43,3 +49,8 @@ Thumbs.db
 *.tgz
 *.tar.gz
 *.tsbuildinfo
+
+# Private recovery material
+backups/
+*.dump
+*.age

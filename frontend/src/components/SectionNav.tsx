@@ -77,6 +77,7 @@ export default function SectionNav({ sections }: SectionNavProps) {
                         {sections.map((section) => (
                             <button
                                 key={section.id}
+                                aria-label={section.label}
                                 onClick={() => handleClick(section.id)}
                                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200 ${activeSection === section.id
                                     ? 'bg-blue-50 text-blue-700'

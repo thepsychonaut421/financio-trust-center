@@ -24,12 +24,12 @@ export default function ConditionalLayout({
 
   // Public routes get Header and Footer
   return (
-    <>
+    <div className="financio-public flex min-h-screen flex-col">
       {header}
       <main id="main-content" className="flex-grow">
         {children}
       </main>
       {footer}
-    </>
+    </div>
   );
 }

@@ -1,29 +1,30 @@
-FROM node:20-alpine
-
+# syntax=docker/dockerfile:1
+FROM node:22-alpine AS build
 WORKDIR /app
-
-# Install dependencies
 COPY package*.json ./
-RUN npm install --only=production && npm install typescript @types/node @types/express @types/cors @types/multer @types/jsonwebtoken @types/nodemailer
+RUN --mount=type=secret,id=proxy_ca \
+    if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
+    npm ci --strict-ssl=true
+COPY tsconfig.json ./
+COPY src ./src
+RUN --mount=type=secret,id=proxy_ca \
+    if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
+    npm run build
 
-# Copy source code
-COPY . .
-
-# Build TypeScript
-RUN npm run build
-
-# Create uploads directory
-RUN mkdir -p /app/uploads/documents
-
-# Make startup script executable
-RUN chmod +x /app/scripts/start.sh
-
-# Run as non-root user (node user already exists in node:20-alpine)
-RUN chown -R node:node /app
+FROM node:22-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+RUN command -v flock >/dev/null 2>&1 || apk add --no-cache util-linux
+COPY --chmod=0644 package*.json ./
+RUN --mount=type=secret,id=proxy_ca \
+    if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
+    npm ci --omit=dev --strict-ssl=true && npm cache clean --force
+COPY --from=build /app/dist ./dist
+COPY scripts ./scripts
+RUN chmod -R a+rX /app/scripts && \
+    mkdir -p /app/uploads/documents /var/lib/financio-trust-automation && \
+    chown -R node:node /app/uploads /var/lib/financio-trust-automation && \
+    chmod 0700 /var/lib/financio-trust-automation
 USER node
-
-# Expose port
 EXPOSE 4000
-
-# Use startup script (generates demo PDFs in demo mode, then starts server)
 CMD ["/bin/sh", "/app/scripts/start.sh"]

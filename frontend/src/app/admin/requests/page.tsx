@@ -87,14 +87,15 @@ function RequestsAdminPageContent() {
 
     setApproving(true);
     try {
-      await apiRequestWithAuth(`/api/admin/document-requests/${approvalModal.requestId}/approve`, token, {
+      const result = await apiRequestWithAuth<{ emailSent: boolean }>(`/api/admin/document-requests/${approvalModal.requestId}/approve`, token, {
         method: 'PATCH',
         body: JSON.stringify({ expiration_days: expirationDays }),
       });
       await loadRequests(token);
       setApprovalModal(null);
-    } catch (error) {
-      console.error('Failed to approve request:', error);
+      if (!result.emailSent) setError('Approval saved, but the email could not be sent. Revoke access if necessary and contact support.');
+    } catch (error: any) {
+      setError(error.message || 'Failed to approve request');
     } finally {
       setApproving(false);
     }
@@ -102,6 +103,14 @@ function RequestsAdminPageContent() {
 
   const openDenyModal = (request: { id: string; requester_name: string }) => {
     setDenyModal({ mode: 'single', requestId: request.id, requesterName: request.requester_name });
+  };
+
+  const revokeAccess = async (id: string) => {
+    if (!token || !window.confirm('Revoke this access link immediately?')) return;
+    try {
+      await apiRequestWithAuth(`/api/admin/document-requests/${id}/revoke`, token, { method: 'PATCH' });
+      await loadRequests(token);
+    } catch (error: any) { setError(error.message || 'Failed to revoke access'); }
   };
 
   // Bulk operations
@@ -358,7 +367,10 @@ function RequestsAdminPageContent() {
                     <tr key={request.id} className="hover:bg-gray-50">
                       {filter === 'pending' && pendingRequests.length > 0 && (
                         <td className="px-4 py-4">
-                          {request.status === 'pending' && (
+                          {['approved', 'auto_approved'].includes(request.status) && (
+                          <button onClick={() => revokeAccess(request.id)} className="text-red-700 underline">Revoke access</button>
+                        )}
+                        {request.status === 'pending' && (
                             <input
                               type="checkbox"
                               checked={selectedIds.has(request.id)}
@@ -409,7 +421,7 @@ function RequestsAdminPageContent() {
                               {expInfo.label}
                             </span>
                           ) : (
-                            <span className="text-sm text-gray-400">Permanent</span>
+                            <span className="text-sm text-gray-400">Link expires after 7 days</span>
                           )
                         ) : (
                           <span className="text-gray-400">—</span>
@@ -417,6 +429,9 @@ function RequestsAdminPageContent() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
+                        {['approved', 'auto_approved'].includes(request.status) && (
+                          <button onClick={() => revokeAccess(request.id)} className="text-red-700 underline">Revoke access</button>
+                        )}
                         {request.status === 'pending' && (
                           <div className="flex gap-2">
                             <button

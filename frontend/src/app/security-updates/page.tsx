@@ -41,10 +41,11 @@ export default async function SecurityUpdatesPage() {
               { label: 'Security Updates' },
             ]}
           />
-          <h1 className="text-5xl font-bold text-gray-900 mb-4">Security Updates</h1>
+          <h1 className="text-3xl sm:text-5xl font-semibold tracking-tight text-gray-900 mb-4">Security Updates</h1>
           <p className="text-xl text-gray-600 max-w-2xl">
             Stay informed about the latest security advisories and updates.
           </p>
+          <p className="financio-muted mt-5 max-w-2xl text-sm leading-relaxed">Only reviewed, published updates appear here. Each entry describes its stated scope and evidence; publication does not imply an independent audit or certification.</p>
         </div>
       </div>
 
@@ -72,10 +73,14 @@ export default async function SecurityUpdatesPage() {
                     Published: {update.published_at.split('T')[0]}
                   </p>
                 )}
-                <div
-                  className="prose max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600"
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(update.content) }}
-                />
+                {update.content_format === 'plain_text' ? (
+                  <div className="whitespace-pre-wrap break-words text-gray-700">{update.content}</div>
+                ) : (
+                  <div
+                    className="prose max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600"
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(update.content) }}
+                  />
+                )}
               </article>
             ))}
           </div>

@@ -2,6 +2,15 @@
 const nextConfig = {
   output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
   reactStrictMode: true,
+  async headers() {
+    return ['/auth/callback', '/admin/:path*', '/access/:path*'].map(source => ({
+      source,
+      headers: [
+        { key: 'Referrer-Policy', value: 'no-referrer' },
+        { key: 'Cache-Control', value: 'private, no-store' },
+      ],
+    }));
+  },
   typescript: {
     // Skip type checking in production build (types verified in dev)
     ignoreBuildErrors: true,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
 interface LoginClientProps {
@@ -160,8 +161,8 @@ export default function LoginClient({ isDemoMode, demoEmail, demoPassword }: Log
 
         {!isDemoMode && (
           <div className="mt-4 text-center text-sm text-gray-600">
-            <p>Default credentials:</p>
-            <p className="font-mono text-gray-800">admin@example.com / admin123</p>
+            <p>Sign in with your authorized Trust Center administrator account.</p>
+            <Link href="/admin/forgot-password" className="inline-block mt-3 text-blue-700 underline">Forgot your password?</Link>
           </div>
         )}
       </div>

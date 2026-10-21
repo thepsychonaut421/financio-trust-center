@@ -121,11 +121,12 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl, isDem
                 // Search security updates
                 updates.forEach(update => {
                     if (update.title?.toLowerCase().includes(query) || update.content?.toLowerCase().includes(query)) {
+                        const preview = update.content_format === 'plain_text' ? update.content : update.content?.replace(/<[^>]*>/g, '');
                         results.push({
                             id: update.id,
                             type: 'update',
                             title: update.title,
-                            description: update.content?.replace(/<[^>]*>/g, '').substring(0, 100),
+                            description: preview?.substring(0, 100),
                             url: '/security-updates',
                         });
                     }
@@ -207,32 +208,38 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl, isDem
 
     return (
         <>
-            <header className={`bg-white shadow-sm border-b border-gray-200 sticky ${isDemoMode ? 'top-[52px] sm:top-9' : 'top-0'} z-40`}>
+            <header className={`financio-header border-b sticky ${isDemoMode ? 'top-[52px] sm:top-9' : 'top-0'} z-40`}>
                 <div className="container mx-auto px-4 py-3">
-                    <nav className="flex items-center justify-between gap-4">
+                    <nav aria-label="Trust Center navigation" className="flex items-center justify-between gap-3">
                         {/* Logo */}
                         <Link
                             href="/"
-                            className="hover:opacity-80 transition-opacity flex-shrink-0"
+                            className="financio-wordmark hover:opacity-90 transition-opacity flex items-center gap-3 min-w-0 flex-shrink-0"
+                            aria-label={`${companyName || 'Financio Flow'} Trust Center home`}
                         >
                             {logoUrl ? (
                                 <img
                                     src={logoUrl}
-                                    alt={companyName || 'Trust Center'}
-                                    className="h-8 w-auto object-contain"
+                                    alt={companyName || 'Financio Flow'}
+                                    className="h-8 w-auto max-w-[180px] object-contain"
                                 />
                             ) : (
-                                <span
-                                    className="text-lg sm:text-xl font-bold"
-                                    style={{ color: primaryColor || '#111827' }}
-                                >
-                                    {companyName || 'Trust Center'}
-                                </span>
+                                <>
+                                    <span className="financio-brand-mark" style={{ backgroundColor: primaryColor || '#1B58D9' }} aria-hidden="true">F</span>
+                                    <span className="leading-tight">
+                                        <span className="block text-base sm:text-lg font-semibold tracking-tight">
+                                            {companyName === 'Financio Flow' || !companyName
+                                                ? <>Financio <span className="financio-mint">Flow</span></>
+                                                : companyName}
+                                        </span>
+                                        <span className="financio-label block mt-0.5">Trust Center</span>
+                                    </span>
+                                </>
                             )}
                         </Link>
 
                         {/* Desktop Search Bar */}
-                        <div ref={searchRef} className="relative flex-1 max-w-md hidden md:block">
+                        <div ref={searchRef} className="relative flex-1 max-w-[260px] hidden xl:block">
                             <div className="relative">
                                 <svg
                                     className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
@@ -250,6 +257,7 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl, isDem
                                 <input
                                     type="text"
                                     placeholder="Search documents, controls, updates..."
+                                    aria-label="Search Trust Center"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     onFocus={() => searchQuery.length >= 2 && setShowSearchResults(true)}
@@ -322,10 +330,13 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl, isDem
                         </div>
 
                         <div className="flex items-center gap-2">
+                            <a href="https://app.financioflow.com/login" className="financio-erp-link hidden sm:inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md">
+                                Open ERP <span aria-hidden="true">↗</span>
+                            </a>
                             {/* Request Documents Button — hidden on small mobile, shown on sm+ */}
                             <button
                                 onClick={() => setShowRequestModal(true)}
-                                className="hidden sm:inline-flex flex-shrink-0 px-4 py-2 border border-gray-900 text-gray-900 rounded-lg font-medium hover:bg-gray-900 hover:text-white transition-colors text-sm"
+                                className="financio-request-button hidden lg:inline-flex flex-shrink-0 px-3 py-2 rounded-md font-medium transition-colors text-sm"
                             >
                                 Request documents
                             </button>
@@ -333,9 +344,10 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl, isDem
                             {/* Mobile Hamburger Button */}
                             <button
                                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                                className="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                                className="financio-menu-button lg:hidden p-2 rounded-md transition-colors"
                                 aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
                                 aria-expanded={mobileMenuOpen}
+                                aria-controls="trust-mobile-navigation"
                             >
                                 {mobileMenuOpen ? (
                                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -353,7 +365,7 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl, isDem
 
                 {/* Mobile Menu Panel */}
                 {mobileMenuOpen && (
-                    <div ref={mobileMenuRef} className="lg:hidden border-t border-gray-200 bg-white animate-slide-down">
+                    <div id="trust-mobile-navigation" ref={mobileMenuRef} className="lg:hidden border-t border-gray-200 bg-white animate-slide-down">
                         <div className="container mx-auto px-4 py-4 space-y-4">
                             {/* Mobile Search */}
                             <div className="relative md:hidden">
@@ -373,6 +385,7 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl, isDem
                                 <input
                                     type="text"
                                     placeholder="Search..."
+                                    aria-label="Search Trust Center on mobile"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
@@ -380,7 +393,7 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl, isDem
                             </div>
 
                             {/* Mobile Nav Links */}
-                            <nav className="flex flex-col">
+                            <nav aria-label="Mobile Trust Center navigation" className="flex flex-col">
                                 {navLinks.map((link) => (
                                     <Link
                                         key={link.href}
@@ -391,6 +404,9 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl, isDem
                                         {link.label}
                                     </Link>
                                 ))}
+                                <a href="https://app.financioflow.com/login" className="financio-erp-link flex items-center justify-between py-3 px-2 rounded-md font-medium text-sm">
+                                    Open Financio Flow ERP <span aria-hidden="true">↗</span>
+                                </a>
                             </nav>
 
                             {/* Mobile Request Documents Button */}
@@ -399,7 +415,7 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl, isDem
                                     setMobileMenuOpen(false);
                                     setShowRequestModal(true);
                                 }}
-                                className="w-full py-2.5 border border-gray-900 text-gray-900 rounded-lg font-medium hover:bg-gray-900 hover:text-white transition-colors text-sm sm:hidden"
+                                className="financio-request-button w-full py-2.5 rounded-md font-medium transition-colors text-sm"
                             >
                                 Request documents
                             </button>

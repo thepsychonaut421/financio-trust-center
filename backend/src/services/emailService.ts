@@ -5,7 +5,7 @@
 
 import { Resend } from 'resend';
 import sgMail from '@sendgrid/mail';
-import nodemailer from 'nodemailer';
+import nodemailer, { type Transporter } from 'nodemailer';
 import fs from 'fs';
 import path from 'path';
 import { validateEmailAddress, sanitizeEmailForLogging, isBlockedDomain } from '../utils/emailValidation';
@@ -20,6 +20,7 @@ export interface EmailAttachment {
 export interface EmailData {
   to: string;
   from: string;
+  replyTo?: string;
   subject: string;
   html: string;
   attachments?: EmailAttachment[];
@@ -33,10 +34,10 @@ const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024; // 20MB
 let resendClient: Resend | null = null;
 
 // Mailpit transporter (lazy initialization)
-let mailpitTransporter: nodemailer.Transporter | null = null;
+let mailpitTransporter: Transporter | null = null;
 
 // SMTP transporter (lazy initialization)
-let smtpTransporter: nodemailer.Transporter | null = null;
+let smtpTransporter: Transporter | null = null;
 
 // SendGrid initialization flag
 let sendgridInitialized = false;
@@ -83,7 +84,7 @@ function getResendClient(): Resend {
 /**
  * Initializes Mailpit transporter for development
  */
-function getMailpitTransporter(): nodemailer.Transporter {
+function getMailpitTransporter(): Transporter {
   if (!mailpitTransporter) {
     mailpitTransporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'mailpit',
@@ -97,7 +98,7 @@ function getMailpitTransporter(): nodemailer.Transporter {
 /**
  * Initializes SMTP transporter for real email delivery
  */
-function getSMTPTransporter(): nodemailer.Transporter {
+function getSMTPTransporter(): Transporter {
   if (!smtpTransporter) {
     const smtpUser = process.env.SMTP_USER;
     const smtpPass = process.env.SMTP_PASSWORD;
@@ -235,6 +236,7 @@ async function sendWithSendGrid(data: EmailData): Promise<void> {
     const msg: sgMail.MailDataRequired = {
       to: data.to,
       from: data.from,
+      replyTo: data.replyTo,
       subject: data.subject,
       html: data.html,
       attachments: sgAttachments.length > 0 ? sgAttachments : undefined,
@@ -272,6 +274,7 @@ async function sendWithResend(data: EmailData): Promise<void> {
     const result = await resend.emails.send({
       from: data.from,
       to: data.to,
+      replyTo: data.replyTo,
       subject: data.subject,
       html: data.html,
       attachments: resendAttachments.length > 0 ? resendAttachments : undefined,
@@ -312,6 +315,7 @@ async function sendWithMailpit(data: EmailData): Promise<void> {
     await transporter.sendMail({
       from: data.from,
       to: data.to,
+      replyTo: data.replyTo,
       subject: data.subject,
       html: data.html,
       attachments: mailpitAttachments.length > 0 ? mailpitAttachments : undefined,
@@ -348,6 +352,7 @@ async function sendWithSMTP(data: EmailData): Promise<void> {
     await transporter.sendMail({
       from: data.from,
       to: data.to,
+      replyTo: data.replyTo,
       subject: data.subject,
       html: data.html,
       attachments: smtpAttachments.length > 0 ? smtpAttachments : undefined,
@@ -384,17 +389,23 @@ export async function sendEmail(data: EmailData): Promise<void> {
     throw new Error('Email domain is not allowed');
   }
 
+  const replyTo = data.replyTo ?? (process.env.EMAIL_REPLY_TO || undefined);
+  if (replyTo !== undefined && !validateEmailAddress(replyTo)) {
+    throw new Error('Invalid reply-to email address format');
+  }
+  const message = { ...data, replyTo };
+
   // Route to appropriate provider
   const provider = getEmailProvider();
 
   if (provider === 'sendgrid') {
-    await sendWithSendGrid(data);
+    await sendWithSendGrid(message);
   } else if (provider === 'resend') {
-    await sendWithResend(data);
+    await sendWithResend(message);
   } else if (provider === 'smtp') {
-    await sendWithSMTP(data);
+    await sendWithSMTP(message);
   } else {
-    await sendWithMailpit(data);
+    await sendWithMailpit(message);
   }
 }
 

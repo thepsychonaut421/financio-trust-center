@@ -8,6 +8,7 @@ import path from 'path';
 import { enforceDocumentUploadPolicy } from '../middleware/documentUploadSecurity';
 import { resolveUploadPath } from '../utils/safePath';
 import { validate } from '../middleware/validate';
+import { isAvailableDocument, currentNdaUrl } from '../utils/documentAccess';
 import { updateDocumentSchema, submitReviewSchema } from '../schemas/document';
 
 // Local file storage configuration
@@ -90,7 +91,7 @@ router.get('/', async (req, res) => {
 
     if (error) throw error;
 
-    res.json(data);
+    res.json(includeAllStatus ? data : (data || []).filter(isAvailableDocument));
   } catch (error: any) {
     console.error('Route error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -149,8 +150,7 @@ router.get('/:id', async (req, res) => {
 
     const { data, error } = await query.single();
 
-    if (error) throw error;
-    if (!data) {
+    if (error || !data || (!includeAllStatus && !isAvailableDocument(data))) {
       return res.status(404).json({ error: 'Document not found' });
     }
 
@@ -171,7 +171,7 @@ router.get('/:id/download', async (req, res) => {
       .eq('status', 'published')
       .single();
 
-    if (error || !document) {
+    if (error || !document || !isAvailableDocument(document)) {
       return res.status(404).json({ error: 'Document not found' });
     }
 
@@ -198,6 +198,19 @@ router.get('/:id/download', async (req, res) => {
   }
 });
 
+router.get('/:id/admin-download', requireAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('documents').select('*').eq('id', req.params.id).maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Document not found' });
+    const filePath = resolveUploadPath(data.file_url);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found on server' });
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Content-Disposition', `attachment; filename="${getSafeDownloadFileName(data.file_name)}"`);
+    return res.sendFile(filePath);
+  } catch { res.status(500).json({ error: 'Internal server error' }); }
+});
+
 // Upload new document (admin only)
 router.post('/', requireAdmin, enforceDocumentUploadPolicy, upload.single('file'), async (req: AuthRequest, res) => {
   try {
@@ -208,8 +221,13 @@ router.post('/', requireAdmin, enforceDocumentUploadPolicy, upload.single('file'
 
     const { title, description, category_id, access_level, version, replaces_document_id, requires_nda, expires_at } = req.body;
 
-    if (!title || !access_level) {
+    if (typeof title !== 'string' || !title.trim() || !['public', 'restricted'].includes(access_level)) {
       return res.status(400).json({ error: 'Title and access_level are required' });
+    }
+
+    if (expires_at && !Number.isFinite(Date.parse(expires_at))) return res.status(400).json({ error: 'Invalid expiry date' });
+    if (replaces_document_id) {
+      return res.status(400).json({ error: 'Use the document replacement action to prepare a new draft' });
     }
 
     // Use local file storage instead of Supabase Storage (more reliable for self-hosted)
@@ -234,18 +252,6 @@ router.post('/', requireAdmin, enforceDocumentUploadPolicy, upload.single('file'
     fs.writeFileSync(fullPath, req.file.buffer);
     console.log('File saved successfully:', filePath);
 
-    // If replacing a document, mark old one as archived
-    if (replaces_document_id) {
-      await supabase
-        .from('documents')
-        .update({
-          is_current_version: false,
-          status: 'archived',
-          archived_at: new Date().toISOString(),
-        })
-        .eq('id', replaces_document_id);
-    }
-
     // Create document record
     const { data: document, error: docError } = await supabase
       .from('documents')
@@ -262,8 +268,8 @@ router.post('/', requireAdmin, enforceDocumentUploadPolicy, upload.single('file'
         version_number: replaces_document_id ? 2 : 1,
         is_current_version: true,
         replaces_document_id: replaces_document_id || null,
-        status: 'published',
-        published_at: new Date().toISOString(),
+        status: 'draft',
+        published_at: null,
         uploaded_by: req.admin!.id,
         requires_nda: requires_nda === 'true' || requires_nda === true,
         ...(expires_at ? { expires_at: new Date(expires_at).toISOString() } : {}),
@@ -271,7 +277,7 @@ router.post('/', requireAdmin, enforceDocumentUploadPolicy, upload.single('file'
       .select()
       .single();
 
-    if (docError) throw docError;
+    if (docError) { fs.unlinkSync(fullPath); throw docError; }
 
     // Log document creation
     await logActivity({
@@ -300,14 +306,23 @@ router.patch('/:id', requireAdmin, validate(updateDocumentSchema), async (req: A
     // Get old document data for logging
     const { data: oldDoc } = await supabase
       .from('documents')
-      .select('title')
+      .select('*')
       .eq('id', req.params.id)
       .single();
 
+    if (!oldDoc) return res.status(404).json({ error: 'Document not found' });
+    const candidate = { ...oldDoc, ...req.body };
+    if (candidate.status === 'published') {
+      if (!isAvailableDocument(candidate)) return res.status(409).json({ error: 'Document is expired or superseded' });
+      if (!fs.existsSync(resolveUploadPath(candidate.file_url))) return res.status(409).json({ error: 'Document file is missing' });
+      if (candidate.requires_nda && candidate.access_level !== 'restricted') return res.status(400).json({ error: 'NDA documents must be restricted' });
+      if (candidate.requires_nda && !await currentNdaUrl()) return res.status(409).json({ error: 'NDA_UNAVAILABLE' });
+    }
     const { data, error } = await supabase
       .from('documents')
       .update({
         ...req.body,
+        ...(req.body.status === 'published' ? { published_at: new Date().toISOString() } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('id', req.params.id)
@@ -360,14 +375,7 @@ router.put('/:id/replace', requireAdmin, enforceDocumentUploadPolicy, upload.sin
       return res.status(404).json({ error: 'Document not found' });
     }
 
-    // Delete old file from storage
-    if (existingDoc.file_url) {
-      const oldFilePath = resolveUploadPath(existingDoc.file_url);
-      if (fs.existsSync(oldFilePath)) {
-        fs.unlinkSync(oldFilePath);
-        console.log('Deleted old file:', oldFilePath);
-      }
-    }
+    if (expires_at && !Number.isFinite(Date.parse(expires_at))) return res.status(400).json({ error: 'Invalid expiry date' });
 
     // Save new file
     const fileExt = req.file.originalname.split('.').pop();
@@ -399,9 +407,10 @@ router.put('/:id/replace', requireAdmin, enforceDocumentUploadPolicy, upload.sin
         description: description !== undefined ? description : existingDoc.description,
         category_id: category_id || existingDoc.category_id,
         access_level: access_level || existingDoc.access_level,
-        status: status || existingDoc.status,
-        requires_nda: requires_nda === 'true' || requires_nda === true,
-        ...(expires_at ? { expires_at: new Date(expires_at).toISOString() } : {}),
+        status: 'draft',
+        published_at: null,
+        requires_nda: requires_nda === undefined ? existingDoc.requires_nda : requires_nda === 'true' || requires_nda === true,
+        ...(expires_at !== undefined ? { expires_at: expires_at ? new Date(expires_at).toISOString() : null } : {}),
         file_url: filePath,
         file_name: safeOriginalName,
         file_size: req.file.size,
@@ -412,7 +421,12 @@ router.put('/:id/replace', requireAdmin, enforceDocumentUploadPolicy, upload.sin
       .select()
       .single();
 
-    if (updateError) throw updateError;
+    if (updateError) { fs.unlinkSync(fullPath); throw updateError; }
+    // Retain the previous file until the database points to the new private draft.
+    if (existingDoc.file_url) {
+      const oldFilePath = resolveUploadPath(existingDoc.file_url);
+      if (fs.existsSync(oldFilePath)) fs.unlinkSync(oldFilePath);
+    }
 
     // Log file replacement
     await logActivity({
@@ -547,6 +561,8 @@ router.post('/:id/versions', requireAdmin, enforceDocumentUploadPolicy, upload.s
         file_name: safeOriginalName,
         file_size: req.file.size,
         file_type: req.file.mimetype,
+        status: 'draft',
+        published_at: null,
         version: `v${newVersionNumber}`,
         version_number: newVersionNumber,
         updated_at: new Date().toISOString(),

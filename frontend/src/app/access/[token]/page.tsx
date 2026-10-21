@@ -24,6 +24,7 @@ export default function AccessPage() {
   const [error, setError] = useState<string | null>(null);
 
   // NDA Logic
+  const [ndaUrl, setNdaUrl] = useState<string | null>(null);
   const [showNDAModal, setShowNDAModal] = useState(false);
   const [pendingDocId, setPendingDocId] = useState<string | null>(null);
   const [isAcceptingNDA, setIsAcceptingNDA] = useState(false);
@@ -50,6 +51,7 @@ export default function AccessPage() {
       if (response.status === 403) {
         const data = await response.json();
         if (data.error === 'NDA_REQUIRED') {
+          setNdaUrl(data.nda_url || null);
           setPendingDocId(documentId);
           setShowNDAModal(true);
           return;
@@ -97,6 +99,8 @@ export default function AccessPage() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
       const response = await fetch(`${apiUrl}/api/access/${token}/accept-nda`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nda_accepted: true, nda_url: ndaUrl }),
       });
 
       if (!response.ok) {
@@ -144,6 +148,7 @@ export default function AccessPage() {
         onClose={() => { setShowNDAModal(false); setPendingDocId(null); }}
         onAccept={handleAcceptNDA}
         isAccepting={isAcceptingNDA}
+        ndaUrl={ndaUrl}
       />
 
       <h1 className="text-4xl font-bold mb-4">Document Access</h1>
@@ -151,15 +156,16 @@ export default function AccessPage() {
         Welcome, {request.requester_name}. You have been granted access to the following documents:
       </p>
 
+      {request.documents.length === 0 && <p className="text-gray-600">These documents are currently unavailable. Please contact support.</p>}
       <div className="space-y-4">
         {request.documents.map((doc) => (
           <div key={doc.id} className="border rounded-lg p-6 hover:shadow-lg transition flex justify-between items-center group">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <h3 className="text-xl font-semibold">{doc.title}</h3>
-                <span className="px-2 py-1 text-xs font-semibold bg-amber-100 text-amber-800 rounded">
+                {doc.requires_nda && <span className="px-2 py-1 text-xs font-semibold bg-amber-100 text-amber-800 rounded">
                   NDA Required
-                </span>
+                </span>}
               </div>
               {doc.description && (
                 <p className="text-gray-600 mb-4">{doc.description}</p>
